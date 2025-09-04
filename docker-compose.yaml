@@ -1,25 +1,33 @@
 version: '3.4'
 
 services:
+  transformer:
+    build: .
+    container_name: weaviate-transformer
+    network_mode: "host"
+    command: python transformer_app.py
+    restart: unless-stopped
+    volumes:
+      - ./transformer_app.py:/backend/transformer_app.py
+      - ./app/routers/vectordb.py:/backend/app/routers/vectordb.py
+      - ./.env:/backend/.env
+
+
   weaviate:
     image: semitechnologies/weaviate:latest
     container_name: weaviate-ai
     network_mode: "host"
-    # ports:
-    #   - "8080:8080"
-    #   - "8081:8081"
     environment:
       QUERY_DEFAULTS_LIMIT: 20
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
       PERSISTENCE_DATA_PATH: "/var/lib/weaviate"
       ENABLE_MODULES: "text2vec-transformers"
       DEFAULT_VECTORIZER_MODULE: "text2vec-transformers"
-      # TRANSFORMERS_INFERENCE_API: "http://10.163.57.73:8000/weaviate"
-      # TRANSFORMERS_INFERENCE_API: "http://192.168.59.238:8000/weaviate"
-      # TRANSFORMERS_INFERENCE_API: "http://host.docker.internal:8000/weaviate"
       TRANSFORMERS_INFERENCE_API: "http://localhost:8000/weaviate"
       CLUSTER_HOSTNAME: "node1"
-      GRPC_PORT: "8081"  # Explicitly set gRPC port
+      GRPC_PORT: "8081"
     volumes:
       - ./weaviate_data:/var/lib/weaviate
+    depends_on:
+      - transformer
     restart: unless-stopped

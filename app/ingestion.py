@@ -1,29 +1,72 @@
 import weaviate
+import os
+from collections import Counter
 from weaviate.classes.config import Configure, Property, DataType, Tokenization
 from weaviate.util import generate_uuid5
 from weaviate.classes.query import Filter
 import tqdm
 from .client import connect_with_retry
-from .utils import parse, chunking
+from .utils import extract_pdf_text, parse, chunking, build_doc_terms
+import re
 
-def initialize_weaviate():
+def get_latest_file(data_dir):
+    files = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir,f))] 
+    if not files:
+        return FileNotFoundError("No files found in the directory.")
+    latest_file = max(files, key=os.path.getmtime)
+    return latest_file
+
+def is_pdf(file_path):
+    try:
+        with open(file_path, "rb") as f:
+            header = f.read(5)
+            return header == b"%PDF-"
+    except:
+        return False
+
+def initialize_client():
     client = connect_with_retry()
     print(client.is_ready())
+    return client
 
-    file = "/root/TutorAI/backend/app/data/networks"
+def initialize_collection(client):
+    data_dir = "/root/TutorAI/backend/app/data"
+    chunks_dir = "/root/TutorAI/backend/app/chunks"
+    terms_dir = "/root/TutorAI/backend/app/terms"
 
-    with open(file,"r") as f:
-        text = f.read()
+    file = get_latest_file(data_dir)
+    
+    base_name = os.path.splitext(os.path.basename(file))[0]
+    base_name = re.sub(r"[^A-Za-z0-9_]+","_",base_name)
 
+    chunks_save = os.path.join(chunks_dir, base_name+".txt")
+    os.makedirs(chunks_dir, exist_ok=True)
 
-    sections = parse(text)
+    terms_save = os.path.join(terms_dir, base_name+".txt")
+    os.makedirs(terms_dir, exist_ok=True)
 
-    chunk_objs = chunking(sections)
+    if is_pdf(file):
+        file = extract_pdf_text(file, os.path.join(data_dir,base_name))
 
+    # file = "/root/TutorAI/backend/app/data/networks"
+    if not client.collections.exists(base_name):
+        with open(file,"r") as f:
+            text = f.read()
 
-    if not client.collections.exists('networks'):
+        sections = parse(text)
+        chunk_objs = chunking(sections)
+        terms = build_doc_terms(chunk_objs)
+        
+        with open(chunks_save, "w", encoding="utf-8") as f:
+            for obj in chunk_objs:
+                f.write(f"{obj['chunk_id']}\n{obj['section']}\n{obj['text']}\n\n")
+
+        with open(terms_save, "w", encoding="utf-8") as f:
+            for term in terms:
+                f.write(f"{term}\n")
+                
         collection = client.collections.create(
-            name = 'networks',
+            name = base_name,
 
             vectorizer_config = Configure.Vectorizer.text2vec_transformers(
                 vectorize_collection_name = False,
@@ -36,13 +79,15 @@ def initialize_weaviate():
                 Property(name="text", vectorize_property_name = True, data_type=DataType.TEXT)
             ]
         )
-        print("Collection created successfully!")
+        print(f"Collection: {base_name} created successfully!")
     else:
-        collection = client.collections.get('networks')
-        print("Using existing collection.")
+        collection = client.collections.get(base_name)
+        with open(terms_save,"r",encoding="utf-8") as f:
+            terms = [line.strip() for line in f if line.strip()]
+        print("Using existing collection: ",base_name)
 
 
-    collection = client.collections.get('networks')
+    collection = client.collections.get(base_name)
 
     if len(collection) == 0:
         with collection.batch.fixed_size(batch_size=200,concurrent_requests=1) as batch:
@@ -54,5 +99,5 @@ def initialize_weaviate():
 
     print("Length of collection: ",len(collection))
 
-    return client, collection
+    return collection, terms
 

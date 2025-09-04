@@ -1,0 +1,180 @@
+Introduction-1
+Introduction
+Have you surfed the Internet to search your examination result or to know whether you got admission to the Plus One course in a school of your choice? Have you visited an ATM counter to draw money? Have you transferred songs, images, or movie clips from your computer to a cell phone or booked a train ticket using the Internet? If your answer to any of these questions is ‘yes’, you have accessed the services of a computer network. In this chapter, we will learn more about the working of networks and their advantages. We will also discuss different media and devices, different types of networks, and the rules to be followed in data communication using these devices.
+
+8.1 Computer Network-1
+8.1 Computer Network
+Computer network is a group of computers and other computing hardware devices (such as printers, scanners, modems, CD drives, etc.) connected to each other electronically through a communication medium. They can communicate with each other, exchange commands, share data, hardware, and other resources. Computers on a network may be linked through cables, telephone lines, radio waves, satellites, or infrared light beams.
+
+8.1.1 Need for Network-1
+8.1.1 Need for Network
+Internet is a good example of a computer network. It is impossible to imagine a world without e-mails, online newspapers, blogs, chat, and other services offered through the Internet. Apart from these, there are many other advantages in using networked computers instead of stand-alone computers. Some of them are listed below:
+Resource Sharing: The sharing of available hardware and software resources in a computer network is called resource sharing. For example, the contents of a DVD placed in a DVD drive of one computer can be read in another computer. Similarly, other hardware resources like hard disk, printer, scanner, etc., and software resources like application software, anti-virus tools, etc., can also be shared through computer networks.
+
+8.1.1 Need for Network-2
+8.1.1 Need for Network
+Price-Performance Ratio: One can easily share the resources available in one computer with other computers. The cost of purchasing licensed software for each computer can be reduced by purchasing network versions of such software. This will least affect the performance of such resources and lead to considerable savings in cost. Communication: Computer networks help users communicate with any other user of the network through services like e-mail, chatting, video conferencing, etc. For example, one can send or receive messages within no time irrespective of the distance.
+
+8.1.1 Need for Network-3
+8.1.1 Need for Network
+Reliability: It is possible to replicate or backup data/information in multiple computers using the network. For example, the C++ files, photos, or songs saved in one computer can also be saved in other computers in the same network. These can be retrieved from other computers in which they are saved in case of disasters (malfunctioning of computers, accidental deletion of files, etc.). Scalability: Computing capacity can be increased or decreased easily by adding or removing computers to the network. In addition to this, the storage capacity of networks can also be increased by including more storage devices in the network.
+
+8.1.2 Some Key Terms-1
+8.1.2 Some Key Terms
+Some of the key terms related to computer networks are explained below:
+Bandwidth: Bandwidth measures the amount of data that can be sent over a specific connection in a given amount of time.Imagine you are in a highway or a public road.The bigger the road, the more will be the number of vehicles that can travel on it.Moreover, the traffic here is faster than on a narrow road.On a narrow road, the traffic is likely to be congested.Bandwidth describes the maximum data-transfer rate between computers in a network.In digital systems, bandwidth is measured in bits per second (bps).If the bandwidth is more, data travels faster and hence large amounts of data can be transferred within a particular time span across the network.
+
+8.1.2 Some Key Terms-2
+8.1.2 Some Key Terms
+For example, an Internet connection via cable modem may provide 25 Mbps of bandwidth.
+
+8.1.2 Some Key Terms-3
+8.1.2 Some Key Terms
+Noise: Noise is unwanted electrical or electromagnetic energy that lowers the quality of data signals. It occurs from nearby radio transmitters, motors, or other cables. The transfer of all types of data including texts, programs, images, and audio over a network is adversely affected by noise. Node: Any device (computer, scanner, printer, etc.) which is directly connected to a computer network is called a node. For example, computers linked to the computer network in the school are nodes. When we connect the Internet to our computer, our computer becomes a node of the Internet.
+
+8.1.2 Some Key Terms-4
+8.1.2 Some Key Terms
+Make a list of the hardware and software resources shared in your school network.
+
+8.2 Data Communication System-1
+8.2 Data Communication System
+In a computer network, computing devices are connected in various ways to communicate and share resources. Data communication is the exchange of digital data between any two devices through a medium of transmission. Figure 8.1 shows the representation of a general data communication system. The following five basic elements are necessary for building any data communication system:
+Message: It is the information to be communicated. Major forms of information include text, picture, audio, video, etc.
+
+8.2 Data Communication System-2
+8.2 Data Communication System
+Sender: The computer or device that is used for sending messages is called the sender, source, or transmitter. Receiver: The computer or device that receives the messages is called the receiver. Medium: It is the physical path through which a message travels from the sender to the receiver. It refers to the way in which nodes are connected. Protocol: The rules under which message transmission takes place between the sender and the receiver is called a protocol.
+
+8.3 Communication Medium-1
+8.3 Communication Medium
+Data communication is possible only if there is a medium through which data can travel from one device to another. The medium for data transmission over a computer network is called a communication channel or communication medium. The communication medium between computers in a network are of two types: guided and unguided. In guided or wired medium, physical wires or cables are used, and in unguided or wireless medium, radio waves, microwaves, or infrared signals are used for data transmission.
+
+8.3.1 Guided Medium (Wired)-1
+8.3.1 Guided Medium (Wired)
+The coaxial cable, twisted pair cable (Ethernet cable), and optical fibre cable are the different types of cables used to transfer data through computer networks. a. Twisted Pair Cable (Ethernet Cable)
+This is the most widely used medium in small computer networks. It consists of four twisted pairs which are enclosed in an outer shield. These pairs are colour coded. Twisted pair cables are of two types:
+
+8.3.1 Guided Medium (Wired)-2
+8.3.1 Guided Medium (Wired)
+Unshielded Twisted Pair (UTP) cables
+Shielded Twisted Pair (STP) cables
+Unshielded Twisted Pair (UTP) Cable: The individual pairs in UTP cables are not shielded. Characteristics of UTP cable:
+Low-cost cable available for setting up small networks
+Thin and flexible
+Easy to install
+Carries data up to a length of 100 m at a stretch
+Shielded Twisted Pair (STP) Cable: Same as UTP, but with each pair shielded individually and an additional outer shield.
+
+8.3.1 Guided Medium (Wired)-3
+8.3.1 Guided Medium (Wired)
+Characteristics of STP cable:
+Better immunity against noise due to shielding
+More expensive than UTP
+Difficult to install compared to UTP
+An RJ-45 connector is used to connect UTP/STP cables to computers. b. Coaxial Cable
+A coaxial cable consists of an inner conductor surrounded by a tubular insulating layer, which is further covered by a conducting shield, and finally an outer insulation. Characteristics of coaxial cable:
+
+8.3.1 Guided Medium (Wired)-4
+8.3.1 Guided Medium (Wired)
+Carries data to longer distances (185 m – 500 m)
+High bandwidth
+Less electromagnetic interference due to shielding
+Thicker and less flexible than twisted pair cables
+Difficult to install compared to twisted pair
+c. Optical Fibre Cable
+Optical fibres are long, thin glass fibres through which data is transmitted as light signals. Data travels as fast as light and can be transmitted over very long distances.
+
+8.3.1 Guided Medium (Wired)-5
+8.3.1 Guided Medium (Wired)
+Parts of optical fibre:
+Core: Thin glass rod at the centre where light travels
+Cladding: Surrounds the core and reflects light back
+Coating: Plastic layer that protects against damage and moisture
+Jacket: Outer covering protecting bundles of fibres
+Working:
+At the source: an optical transmitter converts electrical signals into light (using LEDs or laser diodes). At the destination: an optical receiver with a photodetector converts light back to electrical signals.
+
+8.3.1 Guided Medium (Wired)-6
+8.3.1 Guided Medium (Wired)
+Laser diodes provide faster and longer-distance transmission than LEDs. Characteristics of optical fibre cable:
+Very high bandwidth for voice, video, and data
+Carries data over very long distances
+Immune to electromagnetic interference (uses light)
+Most expensive but most efficient
+Installation and maintenance are difficult and complex
+
+8.3.2 Unguided Medium (Wireless)-1
+8.3.2 Unguided Medium (Wireless)
+Electromagnetic waves are used for wireless communication in computer networks. Frequencies are measured in Hertz (Hz). Based on frequency, only radio waves, microwaves, and infrared rays are commonly used for data communication. a. Radio Waves
+Frequency range: 3 KHz to 3 GHz
+Used for short and long distances; can penetrate walls easily
+Examples: cordless phones, AM/FM radio, mobile phones
+Characteristics of radio wave transmission:
+
+8.3.2 Unguided Medium (Wireless)-2
+8.3.2 Unguided Medium (Wireless)
+Omnidirectional transmission (antennas need not be aligned)
+Inexpensive compared to wired media
+Can penetrate objects
+Affected by electrical equipment interference
+Less secure
+Requires government permissions for use
+b. Microwaves
+Frequency range: 300 MHz (0.3 GHz) to 300 GHz
+Travel in straight lines, cannot penetrate solid objects
+Long-distance communication needs tall towers with line-of-sight antennas
+
+8.3.2 Unguided Medium (Wireless)-3
+8.3.2 Unguided Medium (Wireless)
+Characteristics of microwave transmission:
+Inexpensive compared to wired media
+Suitable for difficult terrain
+Requires aligned antennas (line of sight)
+c. Infrared Waves
+Frequency range: 300 GHz to 400 THz
+Used for short-range communication (≈ 5 m)
+Examples: remote controls, cordless mouse, intrusion detectors
+Characteristics of infrared transmission:
+Line-of-sight, hence secure (no leakage)
+Only two devices can communicate at a time
+
+8.3.2 Unguided Medium (Wireless)-4
+8.3.2 Unguided Medium (Wireless)
+Cannot pass through solid objects
+Weakens with distance
+
+8.3.3 Wireless Communication Technologies Using Radio Waves-1
+8.3.3 Wireless Communication Technologies Using Radio Waves
+a. Bluetooth
+Frequency range: 2.402 GHz to 2.480 GHz
+Short range (≈ 10 m) wireless communication
+Used in phones, laptops, headsets, tablets, cameras, etc. Characteristics of Bluetooth:
+Line of sight not required
+Connects up to 8 devices
+Slow data transfer (≈ 1 Mbps)
+b. Wi-Fi
+Frequency range: 2.4 GHz to 5 GHz
+Two-way communication between devices and router
+Router converts data into radio signals and back
+
+8.3.3 Wireless Communication Technologies Using Radio Waves-2
+8.3.3 Wireless Communication Technologies Using Radio Waves
+Characteristics of Wi-Fi:
+Line of sight not required
+Speed up to 54 Mbps
+Connects multiple devices
+Range up to 375 ft (≈ 114 m)
+c. Wi-MAX (Worldwide Interoperability for Microwave Access)
+Frequency range: 2 GHz to 11 GHz
+Provides high-speed Internet over long distances (city-wide)
+Requires base stations (providers) and receivers (users)
+Characteristics of Wi-MAX:
+Hundreds of users per stationf
+Speed up to 70 Mbps over 45 km range
+
+8.3.3 Wireless Communication Technologies Using Radio Waves-3
+8.3.3 Wireless Communication Technologies Using Radio Waves
+Line of sight not required
+Signal affected by weather conditions
+High power consumption and cost
+
