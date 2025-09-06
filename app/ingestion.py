@@ -6,7 +6,7 @@ from weaviate.util import generate_uuid5
 from weaviate.classes.query import Filter
 import tqdm
 from .client import connect_with_retry
-from .utils import extract_pdf_text, parse, chunking, build_doc_terms
+from .utils import extract_pdf_text, parse, chunking, build_doc_terms, is_pdf
 import re
 
 def get_latest_file(data_dir):
@@ -16,13 +16,6 @@ def get_latest_file(data_dir):
     latest_file = max(files, key=os.path.getmtime)
     return latest_file
 
-def is_pdf(file_path):
-    try:
-        with open(file_path, "rb") as f:
-            header = f.read(5)
-            return header == b"%PDF-"
-    except:
-        return False
 
 def initialize_client():
     client = connect_with_retry()

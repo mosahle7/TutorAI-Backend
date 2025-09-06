@@ -1,11 +1,11 @@
 from fastapi import FastAPI, status, Response, HTTPException, Body, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from .ingestion import initialize_client, initialize_collection
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
-from .utils import gen_single_ip, hybrid_search, gen_final_response, check_mode, list_files
+from .utils import gen_single_ip, hybrid_search, gen_final_response, check_mode, list_files, is_pdf
 import asyncio
 import re
 
@@ -92,12 +92,16 @@ async def retrieve(query:str = Body(...,embed=False)):
 async def upload_file(file: UploadFile = File(...)):
     global collection, terms
     os.makedirs(save_dir, exist_ok=True)
-    file.filename = re.sub(r"[^A-Za-z0-9_]+","_",file.filename)
-    file_path = os.path.join(save_dir, file.filename)
+
+    base, ext = os.path.splitext(file.filename)
+    safe_base = re.sub(r"[^A-Za-z0-9_]+","_",base)
+
+    safe_filename = safe_base + ext
+    file_path = os.path.join(save_dir, safe_filename)
     with open(file_path, "wb") as f:
         f.write(await file.read())
     collection, terms = initialize_collection(client)
-    return {"filename": file.filename, "message": "File uploaded successfully"}
+    return {"filename": safe_filename, "message": "File uploaded successfully"}
 
 @app.get("/list_docs")
 def list_docs():
@@ -118,3 +122,18 @@ def select_collection(collection_name: str):
 def show_collection():
     global collection
     return collection.name
+
+@app.get("/read_docs/{filename}")
+async def read_doc(filename: str):
+    path = os.path.join(save_dir, filename)
+    if is_pdf(path):
+        return FileResponse(
+            path, media_type='application/pdf', 
+            filename=filename,
+            headers={"Content-Disposition": f'inline; filename="{filename}"'})
+    else:
+        return FileResponse(
+            path, 
+            media_type="text/plain",
+            filename=filename,
+            headers={"Content-Disposition": f'inline; filename="{filename}"'})
