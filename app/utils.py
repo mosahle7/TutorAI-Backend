@@ -19,6 +19,14 @@ def list_files():
     files = [f for f in os.listdir(docs_dir) if os.path.isfile(os.path.join(docs_dir,f))]
     return files
 
+def is_pdf(file_path):
+    try:
+        with open(file_path, "rb") as f:
+            header = f.read(5)
+            return header == b"%PDF-"
+    except:
+        return False
+
 def extract_pdf_text(pdf_path, output_txt_path):
     doc = fitz.open(pdf_path)
     all_text = []
