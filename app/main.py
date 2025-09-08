@@ -137,3 +137,12 @@ async def read_doc(filename: str):
             media_type="text/plain",
             filename=filename,
             headers={"Content-Disposition": f'inline; filename="{filename}"'})
+
+@app.get("/download_docs/{filename}")
+async def download_doc(filename:str):
+    path = os.path.join(save_dir, filename)
+    return FileResponse(
+        path,
+        filename = filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
