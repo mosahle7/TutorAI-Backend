@@ -169,7 +169,7 @@ Frequency range: 2 GHz to 11 GHz
 Provides high-speed Internet over long distances (city-wide)
 Requires base stations (providers) and receivers (users)
 Characteristics of Wi-MAX:
-Hundreds of users per stationf
+Hundreds of users per station
 Speed up to 70 Mbps over 45 km range
 
 8.3.3 Wireless Communication Technologies Using Radio Waves-3

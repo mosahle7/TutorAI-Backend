@@ -15,7 +15,7 @@ from spellchecker import SpellChecker
 spell = SpellChecker()
 
 def list_files():
-    docs_dir = "/root/TutorAI/backend/app/data"
+    docs_dir = "./app/data"
     files = [f for f in os.listdir(docs_dir) if os.path.isfile(os.path.join(docs_dir,f))]
     return files
 
@@ -260,30 +260,125 @@ def chunking(sections):
                     chunk_objs.append(chunk_obj)
     return chunk_objs
 
-def build_doc_terms(chunk_objs, top_n=500):
-    text_corpus = " ".join(obj["text"] for obj in chunk_objs).lower()
-    tokens = re.findall(r"\b[a-z]{3,}\b", text_corpus)
-    common_terms = [w for w,_ in Counter(tokens).most_common(top_n)]
-    return list(set(common_terms))
+# def build_doc_terms(chunk_objs, top_n=1500):
+#     text_corpus = " ".join(obj["text"] for obj in chunk_objs).lower()
+#     # tokens = re.findall(r"\b[a-z]{3,}\b", text_corpus)
+#     tokens = re.findall(r"[a-zA-Z0-9\-_/\.]{2,}", text_corpus)
+
+#     common_terms = [w for w,_ in Counter(tokens).most_common(top_n)]
+#     return list(set(common_terms))
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+# def build_doc_terms(chunk_objs, top_n=1500):
+#     docs = [obj["text"].lower() for obj in chunk_objs]
+#     vectorizer = TfidfVectorizer(
+#         token_pattern=r"[a-zA-Z0-9\-_/\.]{2,}", 
+#         max_features=top_n
+#     )
+#     vectorizer.fit(docs)
+#     return set(vectorizer.get_feature_names_out())
 
 
-def normalize_query(query,terms,threshold=80):
-    words = re.findall(r"\b[a-zA-Z]{2,}\b", query.lower())
-    crcted_words = []
+
+# def normalize_query(query,terms,threshold=65):
+#     words = re.findall(r"[a-zA-Z0-9\-_/\.]{2,}", query.lower())
+#     corrected_words = []
+
+#     for w in words:
+#         # 1. Domain term exact match
+#         if w in terms:
+#             corrected_words.append(w)
+#             continue
+
+#         # 2. Domain term fuzzy match
+#         match = process.extractOne(w, terms)
+#         if match and match[1] >= threshold:
+#             corrected_words.append(match[0])
+#             continue
+
+#         # 3. Spell-check English fallback
+#         if w in spell:
+#             corrected_words.append(w)
+#         else:
+#             suggestion = spell.correction(w)
+#             corrected_words.append(suggestion if suggestion else w)
+
+#     return " ".join(corrected_words)
+
+from rapidfuzz import process
+
+# def normalize_query(query, domain_terms, threshold=80):
+#     words = re.findall(r"[a-zA-Z0-9\-_/\.]{2,}", query.lower())
+#     corrected = []
+
+#     for w in words:
+#         if w in domain_terms:  
+#             corrected.append(w)
+#         else:
+#             match = process.extractOne(w, domain_terms)
+#             if match and match[1] >= threshold:
+#                 corrected.append(match[0])
+#             else:
+#                 corrected.append(w)  # leave it as-is (better than wrong spell fix)
+
+#     return " ".join(corrected)
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from symspellpy import SymSpell, Verbosity
+import re
+
+def build_doc_terms(chunk_objs, top_n=1500):
+    docs = [obj["text"].lower() for obj in chunk_objs]
+    vectorizer = TfidfVectorizer(
+        token_pattern=r"[a-zA-Z0-9\-_/\.]{2,}",
+        max_features=top_n
+    )
+    vectorizer.fit(docs)
+    terms = set(vectorizer.get_feature_names_out())
+    return terms
+
+
+def build_symspell(terms, prefix_length=7):
+    # ✅ only prefix_length is accepted in init
+    sym_spell = SymSpell(prefix_length=prefix_length)
+
+    for term in terms:
+        sym_spell.create_dictionary_entry(term, 1)
+
+    return sym_spell
+
+from rapidfuzz import process
+from spellchecker import SpellChecker
+
+spell = SpellChecker()
+
+def normalize_query(query, domain_terms, sym_spell=None, threshold=80):
+    words = re.findall(r"[a-zA-Z0-9\-_/\.]{2,}", query.lower())
+    corrected = []
 
     for w in words:
-        if w in spell:  # ✅ valid English word
-            crcted_words.append(w)
-        else:  # maybe typo / abbreviation
-            match = process.extractOne(w, terms)
-            if match and match[1] >= threshold:
-                crcted_words.append(match[0])
-            else:
-                # fallback: spellchecker suggestion
-                suggestion = spell.correction(w)
-                crcted_words.append(suggestion if suggestion else w)
+        if w in domain_terms:  # ✅ exact doc match
+            corrected.append(w)
+        elif w in spell:  # ✅ valid English word
+            corrected.append(w)
+        else:
+            # Try SymSpell first (typo correction)
+            if sym_spell:
+                suggestions = sym_spell.lookup(w, verbosity=2)
+                if suggestions:
+                    corrected.append(suggestions[0].term)
+                    continue
 
-    return " ".join(crcted_words)
+            # Fallback: fuzzy match against domain terms
+            match = process.extractOne(w, domain_terms)
+            if match and match[1] >= threshold:
+                corrected.append(match[0])
+            else:
+                corrected.append(w)  # last resort: leave as-is
+
+    return " ".join(corrected)
+
 
 def gen_single_ip(
     llm_model,
@@ -324,9 +419,8 @@ def gen_single_ip(
         #     print(f"Errror generating response: {e}")
         #     return {"error":str(e)}
 
-def hybrid_search(collection,query,terms,top_k=30,alpha=0.2):
+def hybrid_search(collection,norm_query,top_k=30,alpha=0.2):
     try:
-        norm_query = normalize_query(query,terms)
         print(norm_query)
         res = collection.query.hybrid(norm_query,limit=top_k,alpha=alpha,return_metadata=MetadataQuery(score=True, explain_score=True))
         res_objs = []
@@ -334,7 +428,7 @@ def hybrid_search(collection,query,terms,top_k=30,alpha=0.2):
             if obj.metadata.score>0.25:
                 res_objs.append(obj.properties)    
 
-        res = [obj for obj in res.objects if obj.metadata.score>0.3]   
+        res = [obj for obj in res.objects if obj.metadata.score>0.25]   
         # for obj in res_objs:
         #     s=""
         #     for key in obj.keys():
@@ -348,7 +442,10 @@ def hybrid_search(collection,query,terms,top_k=30,alpha=0.2):
 def check_mode(llm_model, query):
     messages = [
         {
-            "role":"system", "content": f"""You will be given a query, your task is to identify the mode of explanation of the query.
+            "role":"system", "content": "Reasoning mode: OFF"
+        },
+        {
+            "role":"user", "content":f"""You will be given a query, your task is to identify the mode of explanation of the query.
 You ONLY need to respond with one of these words: "default", "explanatory" or "concise".
 
 Examples:
@@ -358,10 +455,8 @@ Examples:
 4. "Write about something in long" - explanatory
 5. "Tell me about the process of something." - default
 6. "What are benefits of something in short?" - concise
+Query: {query}
 """
-        },
-        {
-            "role":"user", "content":query
         }
     ]
     
@@ -439,20 +534,22 @@ def rerank(query, initial_res, docs):
 
 
 def gen_final_response(llm_model,collection,query:str,terms):
-    initail_res,initial_docs = hybrid_search(collection, query, terms)
+    sym_spell = build_symspell(terms)
+    norm_query = normalize_query(query,terms,sym_spell)
+    initail_res,initial_docs = hybrid_search(collection, norm_query)
     if initial_docs == []:
         yield f"The uploaded document does not provide any information about {query}.".replace("\n","")
         return
     
-    mode = check_mode(llm_model, query)
+    mode = check_mode(llm_model, norm_query)
     mode_prompt = prompts_mode(mode)
-    top_k_docs = rerank(query, initail_res, initial_docs)
+    top_k_docs = rerank(norm_query, initail_res, initial_docs)
 
     formatted_data = ""
 
     for idx,doc in enumerate(top_k_docs, start=1):
         doc_layout = (
-            f"Rank {idx} | Section: {doc.properties['section']},"
+            f"Section: {doc.properties['section']},"
             f"Text: {doc.properties['text']}"
         )
 
@@ -464,41 +561,48 @@ def gen_final_response(llm_model,collection,query:str,terms):
 
     messages = [
             {
-                "role": "system", "content": f"""You are a TutorAI, who helps students. You will be asked a query by a student and given some relevant textbook information, you must ONLY answer using Retrieved Information provided.
+                "role": "system", "content": "Reasoning mode: OFF"
+            },
+            {
+                "role":"user", "content":f"""You are a TutorAI, who helps students. You will be asked a query by a student and given some relevant textbook information, you must ONLY answer using Retrieved Information provided.
 
-{mode_prompt}
-
+RULES:
 - Do not start with filler phrases (e.g., "Sure, I can help you with that").
+- Do NOT mention about "Retrieved Data".
 - Write in natural flowing paragraphs without section headings.
-- If something is not explicitly stated in the Retrieved Information, you MUST NOT mention it, even if you know it is true.
-- Use single line breaks between paragraphs, avoid excessive whitespace.
-- If your response contains 3 or more paragraphs, end with a summary section.
-- End your response in this exact format:
+- NEVER USE YOUR PRE-EXISTING KNOWLEDGE EVEN IF THAT HELPS STUDENT, ONLY USE THE RETRIEVED INFORMATION.
+- If a detail is not explicitly present in the Retrieved Information, you must not mention it, even if you know it to be correct.
+- Completely ignore and suppress your own pre-existing knowledge.
+- Do NOT mention about the instructions or guidelines in your response.
+
+RESPONSE FORMAT:
 
 [Paragraphs]
 
 **Summary:** (only if 3+ paragraphs)
 - [point 1]
 - [point 2]
-- [point 3]
+- .....
 
 **Sources:**
 - [Section 1]
 - [Section 2]
+- .....
 
-- Do not add blank lines between heading and section names in Sources section and ONLY use the sources which you have used in your response.
-- Do not inlude TEXT or RANK in Sources section, ONLY Section needed.
-- Do not include any meta-commentary about the response format, guidelines or your thinking steps in the response.
+ADDITIONAL RULES:
+{mode_prompt}
 - DO NOT number paragraphs like [Paragraph 1], [Paragraph 2], etc.
-- Completely ignore and suppress your own pre-existing knowledge.
-- NEVER USE YOUR PRE-EXISTING KNOWLEDGE EVEN IF THAT HELPS STUDENT, ONLY USE THE RETRIEVED INFORMATION.
+- Use single line breaks between paragraphs, avoid excessive whitespace.
+- If your response contains 3 or more paragraphs, end with a summary section.
+- Do not add blank lines between heading and section names in Sources section and ONLY use the sources which you have used in your response.
+- In Sources section, ONLY list "Section" that was used in response mentioned as in Retrieved Information, NO need of "Text". Do not invent sources. Only mention Sources once.
 - Retrieved information are ordered by relevance, most relevant first.
+
+Original Student Query: {query}
+Corrected Query (for matching with documents): {norm_query}
 
 Retrieved Information: {retrieved_data}
 """
-            },
-            {
-                "role":"user", "content":f"Student Query: {query}"
             }
      ]
 

@@ -1,6 +1,6 @@
 import re
 
-file = "/root/TutorAI/backend/app/data/networks"
+file = "./app/data/networks"
 
 with open(file,"r") as f:
     text = f.read()

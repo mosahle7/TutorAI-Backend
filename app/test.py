@@ -21,7 +21,7 @@ client = weaviate.connect_to_local(
                     timeout=weaviate.classes.init.Timeout(init=30, query=60, insert=120)
                 )
             )
-collection_name = "Provisional_Certificate"
+collection_name = "netwroks_new"
 
 try:
     # Check if collection exists first (optional)

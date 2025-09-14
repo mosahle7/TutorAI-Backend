@@ -126,4 +126,4 @@ def extract_text_preserve_layout(pdf_path, output_txt_path):
     return clean_text
 
 
-extract_text_preserve_layout("/root/TutorAI/backend/app/data/ComputerApplicationCommerce1Year_removed.pdf", "/root/TutorAI/backend/app/pdf_data/ComputerApplicationCommerce1Year_removed.txt")
+extract_text_preserve_layout("./app/data/ComputerApplicationCommerce1Year_removed.pdf", "/root/TutorAI/backend/app/pdf_data/ComputerApplicationCommerce1Year_removed.txt")

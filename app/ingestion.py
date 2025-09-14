@@ -23,9 +23,9 @@ def initialize_client():
     return client
 
 def initialize_collection(client):
-    data_dir = "/root/TutorAI/backend/app/data"
-    chunks_dir = "/root/TutorAI/backend/app/chunks"
-    terms_dir = "/root/TutorAI/backend/app/terms"
+    data_dir = "./app/data"
+    chunks_dir = "./app/chunks"
+    terms_dir = "./app/terms"
 
     file = get_latest_file(data_dir)
     

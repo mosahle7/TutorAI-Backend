@@ -6,14 +6,16 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from .utils import gen_single_ip, hybrid_search, gen_final_response, check_mode, list_files, is_pdf
+from .agent import graph, MsgState, config
 import asyncio
 import re
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 load_dotenv()
 
 app=FastAPI()
 
-save_dir = "/root/TutorAI/backend/app/data"
+save_dir = "./app/data"
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,10 +75,30 @@ async def get_response(query:str = Body(...,embed=False)):
         }
     )
 
+def gen_agentic(query: str):
+    state = graph.get_state(config=config)
+
+    if state.values == {}:
+        state.values["messages"] = [HumanMessage(content=query)]
+        state.values["retrieved_data"]=""
+        print("State initialized")
+    else:
+        state.values["messages"].append(HumanMessage(content=query))
+
+    res = graph.invoke(state.values, config=config)
+    return res["messages"][-1].content
+
+@app.post("/agentic_final",status_code=status.HTTP_201_CREATED)
+async def get_agentic(query:str = Body(...,embed=False)):
+    res = await asyncio.to_thread(gen_agentic, query)
+    return res
+
+
 @app.post("/response",status_code=status.HTTP_201_CREATED)
 async def get_response(query:str = Body(...,embed=False)):
     res = await asyncio.to_thread(gen_single_ip,llm_model,query)
     return res
+
 
 @app.post("/mode",status_code=status.HTTP_201_CREATED)
 async def get_response(query:str = Body(...,embed=False)):
