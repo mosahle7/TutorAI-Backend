@@ -29,7 +29,7 @@ llm_model = ChatNVIDIA(
     temperature=0,
     top_p=0.75,
     max_retries=3,
-    max_completion_tokens=5000
+    max_completion_tokens=6000
 )
 
 # def llm_call(state: MessagesState):

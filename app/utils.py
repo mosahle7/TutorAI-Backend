@@ -444,17 +444,42 @@ def check_mode(llm_model, query):
         {
             "role":"system", "content": "Reasoning mode: OFF"
         },
-        {
-            "role":"user", "content":f"""You will be given a query, your task is to identify the mode of explanation of the query.
-You ONLY need to respond with one of these words: "default", "explanatory" or "concise".
+#         {
+#             "role":"user", "content":f"""You will be given a query, your task is to identify the mode of explanation of the query.
+# You ONLY need to respond with one of these words: "default", "explanatory" or "concise".
 
-Examples:
+# Examples:
+# 1. "What is something?" - default
+# 2. "Explain something." - explanatory
+# 3. "Summarize the main points of something." - concise
+# 4. "Write about something in long" - explanatory
+# 5. "Tell me about the process of something." - default
+# 6. "What are benefits of something in short?" - concise
+# Query: {query}
+# """
+#         }
+
+        {
+            "role":"user", "content":f"""You are tasked with classifying the mode of explanation of the given query.
+You must classify the query into one of the following modes: "explanatory", "concise", "default".
+
+RULES:
+- If the query contains "explain", "describe", "long", "essay" → "explanatory"
+- If the query contains words like "summarize", "short", "in brief", "concise", "main points", "bullet points" → "concise"
+- Otherwise → "default"
+
+EXAMPLES:
 1. "What is something?" - default
 2. "Explain something." - explanatory
 3. "Summarize the main points of something." - concise
 4. "Write about something in long" - explanatory
 5. "Tell me about the process of something." - default
 6. "What are benefits of something in short?" - concise
+7. "Write about something" - default
+8. "Something" - default
+
+Respond with ONLY one word: explanatory, concise, or default.
+
 Query: {query}
 """
         }
@@ -549,8 +574,8 @@ def gen_final_response(llm_model,collection,query:str,terms):
 
     for idx,doc in enumerate(top_k_docs, start=1):
         doc_layout = (
-            f"Section: {doc.properties['section']},"
-            f"Text: {doc.properties['text']}"
+            f"Section: {doc.properties['section']},\n"
+            f"Text:\n{doc.properties['text']}"
         )
 
         formatted_data += doc_layout+"\n\n"
