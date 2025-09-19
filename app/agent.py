@@ -5,14 +5,10 @@ from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langgraph.checkpoint.memory import MemorySaver
 from dotenv import load_dotenv
 from .nodes.decision_node import router
-from .nodes.doc_retrieve import initialize_client, initialize_collection, build_symspell, normalize_query,hybrid_search, rerank, gen_retrieved_res
+from .nodes.doc_retrieve import build_symspell, normalize_query, hybrid_search, rerank, check_mode, gen_retrieved_res
 from .nodes.memory_retrieve import gen_memory_res
-load_dotenv()
 
-collection_name = "networks"
-
-client = initialize_client()
-collection = initialize_collection(client)
+load_dotenv() 
 
 def _set_env(var: str):
     if not os.environ.get(var):
@@ -29,7 +25,7 @@ llm_model = ChatNVIDIA(
     temperature=0,
     top_p=0.75,
     max_retries=3,
-    max_completion_tokens=6000
+    max_completion_tokens=5000
 )
 
 # def llm_call(state: MessagesState):
@@ -61,21 +57,21 @@ def route_condition(state: MsgState) -> str:
     print("Router → memory_retrieval")
     return "memory_retrieval"
 
-    
 def document_retrieval(state: MsgState):
     query = state["messages"][-1].content
     sym_spell = build_symspell()
     norm_query = normalize_query(query, sym_spell)
-    initial_res, initial_docs = hybrid_search(norm_query)
 
+    initial_res, initial_docs = hybrid_search(norm_query)
+    
     top_k_docs = rerank(norm_query, initial_res, initial_docs)
 
     formatted_data = ""
 
     for idx,doc in enumerate(top_k_docs, start=1):
         doc_layout = (
-            f"Section: {doc.properties['section']},"
-            f"Text: {doc.properties['text']}"
+            f"Section: {doc.properties['section']},\n"
+            f"Text:\n{doc.properties['text']}"
         )
 
         formatted_data += doc_layout+"\n\n"
@@ -89,13 +85,24 @@ def llm_retrieved_call(state: MsgState):
     query = state["messages"][-1].content
     sym_spell = build_symspell()
     norm_query = normalize_query(query, sym_spell)
+    mode = check_mode(llm_model, norm_query)
+    print("Mode: ",mode)
 
     retrieved_data = state["retrieved_data"]
     if retrieved_data is None or retrieved_data == "":
         state["messages"].append(AIMessage(content=f"The uploaded document does not provide any information about: {query}"))
         return {"messages": state["messages"][-1:]}
-    res = gen_retrieved_res(llm_model, query, norm_query, retrieved_data)
-    state["messages"].append(AIMessage(content=res))
+    
+    msg = gen_retrieved_res(llm_model, query, norm_query, retrieved_data, mode)
+
+    full_res = ""
+
+    for chunk in llm_model.stream(msg):
+        if chunk.content:
+            full_res += chunk.content
+            yield {"messages": [AIMessage(content=chunk.content)]}
+    
+    state["messages"].append(AIMessage(content=full_res))
     return {"messages": state["messages"][-1:]}
 
 def memory_retrieval(state: MsgState):
@@ -119,11 +126,10 @@ builder.add_node(llm_retrieved_call)
 # builder.add_node("router", router)
 
 # builder.add_edge(START, "router")
-builder.add_conditional_edges(START, route_condition)
+builder.add_conditional_edges(START, route_condition, ["document_retrieval", "memory_retrieval"])
 builder.add_edge("document_retrieval", "llm_retrieved_call")
 builder.add_edge("llm_retrieved_call", END)
 builder.add_edge("memory_retrieval", END)
 
 graph = builder.compile(checkpointer=memory)
 # graph = builder.compile()
-

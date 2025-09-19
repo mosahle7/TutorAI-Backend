@@ -10,7 +10,7 @@ from .agent import graph, MsgState, config
 import asyncio
 import re
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-
+from .config import client, collection, terms
 load_dotenv()
 
 app=FastAPI()
@@ -25,15 +25,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = initialize_client()
-print("Weaviate initialized")
+# client = initialize_client()
+# print("Weaviate initialized")
 
-collection, terms = initialize_collection(client)
+# collection, terms = initialize_collection(client)
 
-llm_model = OpenAI(
-  base_url = "https://integrate.api.nvidia.com/v1",
-  api_key = os.getenv("MODEL_API")
-)
+# llm_model = OpenAI(
+#   base_url = "https://integrate.api.nvidia.com/v1",
+#   api_key = os.getenv("MODEL_API")
+# )
 
 # app.include_router(vectordb.router)
 
@@ -57,23 +57,23 @@ async def options_final():
         }
     )
 
-@app.post("/final",status_code=status.HTTP_201_CREATED)
-async def get_response(query:str = Body(...,embed=False)):
-    def generate():
-        return gen_final_response(llm_model,collection,query,terms)
+# @app.post("/final",status_code=status.HTTP_201_CREATED)
+# async def get_response(query:str = Body(...,embed=False)):
+#     def generate():
+#         return gen_final_response(llm_model,collection,query,terms)
 
     
-    return StreamingResponse(
-        generate(),
-        media_type = "text/plain",
-        headers = {
-            "Cache-control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",              
-            "Access-Control-Allow-Methods": "POST, OPTIONS", 
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
+#     return StreamingResponse(
+#         generate(),
+#         media_type = "text/plain",
+#         headers = {
+#             "Cache-control": "no-cache",
+#             "Connection": "keep-alive",
+#             "Access-Control-Allow-Origin": "*",              
+#             "Access-Control-Allow-Methods": "POST, OPTIONS", 
+#             "Access-Control-Allow-Headers": "*",
+#         }
+#     )
 
 def gen_agentic(query: str):
     state = graph.get_state(config=config)
@@ -86,6 +86,7 @@ def gen_agentic(query: str):
         state.values["messages"].append(HumanMessage(content=query))
 
     res = graph.invoke(state.values, config=config)
+
     return res["messages"][-1].content
 
 @app.post("/agentic_final",status_code=status.HTTP_201_CREATED)
@@ -93,22 +94,57 @@ async def get_agentic(query:str = Body(...,embed=False)):
     res = await asyncio.to_thread(gen_agentic, query)
     return res
 
+def gen_agentic_stream(query: str):
+    state = graph.get_state(config=config)
 
-@app.post("/response",status_code=status.HTTP_201_CREATED)
-async def get_response(query:str = Body(...,embed=False)):
-    res = await asyncio.to_thread(gen_single_ip,llm_model,query)
-    return res
+    if state.values == {}:
+        state.values["messages"] = [HumanMessage(content=query)]
+        state.values["retrieved_data"]=""
+        print("State initialized")
+    else:
+        state.values["messages"].append(HumanMessage(content=query))
+
+    for event in graph.stream(state.values, config=config, stream_mode="values"):
+        if "messages" in event:
+            for msg in event["messages"]:
+                if isinstance(msg, AIMessage):
+                    yield msg.content
+            
+@app.post("/agent_stream",status_code=status.HTTP_201_CREATED)
+async def get_agentic(query:str = Body(...,embed=False)):
+    async def event_generator():
+        for chunk in gen_agentic_stream(query):
+            yield chunk
+            await asyncio.sleep(0)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/plain",
+        headers={
+            "Cache-control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",              
+            "Access-Control-Allow-Methods": "POST, OPTIONS", 
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
 
 
-@app.post("/mode",status_code=status.HTTP_201_CREATED)
-async def get_response(query:str = Body(...,embed=False)):
-    res = await asyncio.to_thread(check_mode,llm_model,query)
-    return res
+# @app.post("/response",status_code=status.HTTP_201_CREATED)
+# async def get_response(query:str = Body(...,embed=False)):
+#     res = await asyncio.to_thread(gen_single_ip,llm_model,query)
+#     return res
 
-@app.post("/retrieve",status_code=status.HTTP_201_CREATED)
-async def retrieve(query:str = Body(...,embed=False)):
-    res = await asyncio.to_thread(hybrid_search,collection,query)
-    return res
+
+# @app.post("/mode",status_code=status.HTTP_201_CREATED)
+# async def get_response(query:str = Body(...,embed=False)):
+#     res = await asyncio.to_thread(check_mode,llm_model,query)
+#     return res
+
+# @app.post("/retrieve",status_code=status.HTTP_201_CREATED)
+# async def retrieve(query:str = Body(...,embed=False)):
+#     res = await asyncio.to_thread(hybrid_search,collection,query)
+#     return res
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
