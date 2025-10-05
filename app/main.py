@@ -7,10 +7,14 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from .utils import gen_single_ip, hybrid_search, gen_final_response, check_mode, list_files, is_pdf
 from .agent import graph, MsgState, config
+from .nodes.doc_retrieve import check_mode
 import asyncio
 import re
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from .config import client, collection, terms
+# from .config import client, collection, terms
+from . import vdb_config
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
+
 load_dotenv()
 
 app=FastAPI()
@@ -35,10 +39,23 @@ app.add_middleware(
 #   api_key = os.getenv("MODEL_API")
 # )
 
+llm_model = ChatNVIDIA(
+    base_url="https://integrate.api.nvidia.com/v1",
+    # api_key=os.getenv("MODEL_API"),
+    # model="nvidia/llama-3.1-nemotron-nano-8b-v1",
+    api_key=os.getenv("LLAMA_3.170B"),
+    model="meta/llama-3.1-70b-instruct",
+    temperature=0,
+    top_p=0.75,
+    max_retries=3,
+    max_completion_tokens=200
+)
+
 # app.include_router(vectordb.router)
 
 @app.get("/")
 async def root():
+    
     return "Hello"
 
 # @app.get("/response")
@@ -46,16 +63,16 @@ async def root():
 #     res = await asyncio.to_thread(gen_single_ip,llm_model)
 #     return res
 
-@app.options("/final")
-async def options_final():
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
+# @app.options("/final")
+# async def options_final():
+#     return Response(
+#         status_code=200,
+#         headers={
+#             "Access-Control-Allow-Origin": "*",
+#             "Access-Control-Allow-Methods": "POST, OPTIONS",
+#             "Access-Control-Allow-Headers": "*",
+#         }
+#     )
 
 # @app.post("/final",status_code=status.HTTP_201_CREATED)
 # async def get_response(query:str = Body(...,embed=False)):
@@ -75,41 +92,67 @@ async def options_final():
 #         }
 #     )
 
-def gen_agentic(query: str):
-    state = graph.get_state(config=config)
+# def gen_agentic(query: str):
+#     state = graph.get_state(config=config)
 
-    if state.values == {}:
-        state.values["messages"] = [HumanMessage(content=query)]
-        state.values["retrieved_data"]=""
-        print("State initialized")
-    else:
-        state.values["messages"].append(HumanMessage(content=query))
+#     if state.values == {}:
+#         state.values["messages"] = [HumanMessage(content=query)]
+#         state.values["retrieved_data"]=""
+#         print("State initialized")
+#     else:
+#         state.values["messages"].append(HumanMessage(content=query))
 
-    res = graph.invoke(state.values, config=config)
+#     res = graph.invoke(state.values, config=config)
 
-    return res["messages"][-1].content
+#     return res["messages"][-1].content
 
-@app.post("/agentic_final",status_code=status.HTTP_201_CREATED)
-async def get_agentic(query:str = Body(...,embed=False)):
-    res = await asyncio.to_thread(gen_agentic, query)
-    return res
+# @app.post("/agentic_final",status_code=status.HTTP_201_CREATED)
+# async def get_agentic(query:str = Body(...,embed=False)):
+#     res = await asyncio.to_thread(gen_agentic, query)
+#     return res
 
 def gen_agentic_stream(query: str):
+    print(f"🔍 Starting gen_agentic_stream with query: {query}")
+    mode = check_mode(llm_model, query)
     state = graph.get_state(config=config)
 
+    inputs = {
+            "messages": [HumanMessage(content=query)],
+            "retrieved_data": "",
+            "mode": mode
+        }
+    
     if state.values == {}:
-        state.values["messages"] = [HumanMessage(content=query)]
-        state.values["retrieved_data"]=""
-        print("State initialized")
+        state.values.update(inputs)
+        print("🆕 State initialized")
+
     else:
         state.values["messages"].append(HumanMessage(content=query))
+        state.values["retrieved_data"] = state.values.get("retrieved_data", "")
+        state.values["mode"] = mode
+        print("📝 Added to existing state")
+    
+    print("🚀 Starting graph stream...")
+    
+    chunk_count = 0
+    for message, metadata in graph.stream(inputs, config=config, stream_mode="messages"):
+        if metadata.get("langgraph_node") == "llm_retrieved_call":
+            if isinstance(message, AIMessage):
+                content = message.content
+                if content:  # Only yield non-empty content
+                    chunk_count += 1
+                    yield content
+        elif metadata.get("langgraph_node") == "memory_retrieval":
+             if isinstance(message, AIMessage):
+                content = message.content
+                if content:  # Only yield non-empty content
+                    chunk_count += 1
+                    yield content
+    
 
-    for event in graph.stream(state.values, config=config, stream_mode="values"):
-        if "messages" in event:
-            for msg in event["messages"]:
-                if isinstance(msg, AIMessage):
-                    yield msg.content
-            
+    print(f"🏁 Finished streaming. Total chunks: {chunk_count}")
+
+
 @app.post("/agent_stream",status_code=status.HTTP_201_CREATED)
 async def get_agentic(query:str = Body(...,embed=False)):
     async def event_generator():
@@ -148,7 +191,7 @@ async def get_agentic(query:str = Body(...,embed=False)):
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    global collection, terms
+    # global collection, terms
     os.makedirs(save_dir, exist_ok=True)
 
     base, ext = os.path.splitext(file.filename)
@@ -158,7 +201,7 @@ async def upload_file(file: UploadFile = File(...)):
     file_path = os.path.join(save_dir, safe_filename)
     with open(file_path, "wb") as f:
         f.write(await file.read())
-    collection, terms = initialize_collection(client)
+    vdb_config.collection, vdb_config.terms = initialize_collection(vdb_config.client)
     return {"filename": safe_filename, "message": "File uploaded successfully"}
 
 @app.get("/list_docs")
@@ -169,17 +212,16 @@ def list_docs():
 
 @app.get("/select_collection")
 def select_collection(collection_name: str):
-    global collection
+    # global collection
     # try:
-    collection = client.collections.get(collection_name)
+    vdb_config.collection = vdb_config.client.collections.get(collection_name)
     # except Exception as e:
     #     print(f"Error selecting collection: {e}")
-    return {"collection_name":collection_name, "collection": collection.name}
-    
+    return {"collection_name":collection_name, "collection": vdb_config.collection.name}
+
 @app.get("/show_collection")
 def show_collection():
-    global collection
-    return collection.name
+    return vdb_config.collection.name
 
 @app.get("/read_docs/{filename}")
 async def read_doc(filename: str):

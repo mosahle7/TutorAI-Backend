@@ -9,7 +9,7 @@ from rapidfuzz import process
 from weaviate.classes.query import MetadataQuery
 from langchain_core.messages import SystemMessage, HumanMessage
 from symspellpy import SymSpell
-from ..config import client, collection, terms
+from .. import vdb_config 
 
 spell = SpellChecker()
 
@@ -17,7 +17,7 @@ def build_symspell(prefix_length=7):
     # ✅ only prefix_length is accepted in init
     sym_spell = SymSpell(prefix_length=prefix_length)
 
-    for term in terms:
+    for term in vdb_config.terms:
         sym_spell.create_dictionary_entry(term, 1)
 
     return sym_spell
@@ -27,7 +27,7 @@ def normalize_query(query, sym_spell=None, threshold=80):
     corrected = []
 
     for w in words:
-        if w in terms:  # ✅ exact doc match
+        if w in vdb_config.terms:  # ✅ exact doc match
             corrected.append(w)
         elif w in spell:  # ✅ valid English word
             corrected.append(w)
@@ -40,7 +40,7 @@ def normalize_query(query, sym_spell=None, threshold=80):
                     continue
 
             # Fallback: fuzzy match against domain terms
-            match = process.extractOne(w, terms)
+            match = process.extractOne(w, vdb_config.terms)
             if match and match[1] >= threshold:
                 corrected.append(match[0])
             else:
@@ -53,7 +53,7 @@ def normalize_query(query, sym_spell=None, threshold=80):
 def hybrid_search(norm_query):
     try:
         print(norm_query)
-        res = collection.query.hybrid(norm_query,limit=30,alpha=0.2,return_metadata=MetadataQuery(score=True, explain_score=True))
+        res = vdb_config.collection.query.hybrid(norm_query,limit=30,alpha=0.2,return_metadata=MetadataQuery(score=True, explain_score=True))
         res_objs = []
         for obj in res.objects:
             if obj.metadata.score>0.25:
@@ -148,7 +148,7 @@ Query: {query}
     
 def mode_prompts(mode):
     if mode == "explanatory":
-        prompt = f"""You are in Explanatory Mode. Provide detailed explanation with that covers: definition, context, examples and relevance.
+        prompt = f"""Provide detailed explanation with that covers: definition, context, examples and relevance.
 
 RESPONSE RULES:
    - Do not explicitly label sections with these: definition, context, examples and relevance. Instead, organize the response into coherent paragraphs and, use your own suitable headings wherever needed.
@@ -157,7 +157,7 @@ RESPONSE RULES:
    - Do NOT count Summary and Sources sections as Paragraphs.
    - Summary and Sources should be there.
    - Summary and Sources should come after Paragraphs.
-   - Use Markdown format with ## Summary ## and ## Sources ## headings.
+   - Use Markdown format with ## Summary and ## Sources  headings.
 
 RESPONSE FORMAT:
 
@@ -165,25 +165,25 @@ RESPONSE FORMAT:
 
 (After the paragraphs, add the Summary and Sources sections)
 
-## Summary: ##
+## Summary:
 - [point 1]
 - [point 2]
 - .....
 
-## Sources: ##
+## Sources: 
 - [Section 1]
 - [Section 2]
 - .....
 """
     elif mode == "concise":
-        prompt = f"""You are in Concise Mode. Provide brief, to-the-point answers with no unnecessary details.
+        prompt = f"""Provide brief, to-the-point answers with no unnecessary details.
 
 RESPONSE RULES:
    - If there is enough info in Retrieved Information, answer in 1 paragraph.
    - If there is NOT enough info, answer as completely as possible.
    - Sources section does NOT count as Paragraphs.
    - Sources section should come after the Paragraph.
-   - Use Markdown format with ## Sources ## heading.
+   - Use Markdown format with ## Sources  heading.
    - Sources should be there.
 
 RESPONSE FORMAT:
@@ -192,35 +192,34 @@ RESPONSE FORMAT:
 
 (After the paragraph, add the Sources)
 
-## Sources: ##
+## Sources: 
 - [Section 1]
 - [Section 2]
 - .....
 """
     else:
-        prompt =  f""""You are in Default Mode. Provide balanced responses with moderate detail that covers: definition, context, examples and relevance.
+        prompt =  f""""Provide balanced responses with moderate detail that covers: definition, context, examples and relevance.
 
 RESPONSE RULES:
    - Do not explicitly label sections with these: definition, context, examples and relevance. Instead, organize the response into coherent paragraphs and, use your own suitable headings if needed.
    - If there is enough info in Retrieved Information,  produce atleast 3-4 short paragraphs, each atleast 3–4 sentences.
    - If there is NOT enough info, answer as completely as possible.
-   - Do NOT count Summary and Sources sections as Paragraphs.
    - Summary and Sources should be there.
    - Summary and Sources should come after the Paragraphs.
-   - Use Markdown format with ## Summary ## and ## Sources ## headings.
+   - Use Markdown format with ## Summary  and ## Sources  headings.
 
-RESPONSE FORMAT:
+RESPONSE FORMAT SHOULD BE LIKE THIS:
 
 [Paragraphs]
 
 (After the paragraphs, add Summary and Sources sections)
 
-## Summary: ##
+## Summary: 
 - [point 1]
 - [point 2]
 - .....
 
-## Sources: ##
+## Sources: 
 - [Section 1]
 - [Section 2]
 - .....
@@ -230,7 +229,7 @@ RESPONSE FORMAT:
 def gen_retrieved_res(llm_model, query, norm_query, retrieved_data, mode):
     mode_prompt = mode_prompts(mode)
 
-    messages = [SystemMessage(content="Reasoning Mode: OFF")]
+    # messages = [SystemMessage(content="Reasoning Mode: OFF")]
     sys_msg = f"""You are a TutorAI, who helps students. You will be asked a query by a student and given some Relevant Information, you must ONLY answer using Retrieved Information provided.
 
 Follow these rules strictly:
@@ -241,17 +240,18 @@ RULES:
    - NEVER USE YOUR PRE-EXISTING KNOWLEDGE EVEN IF THAT HELPS STUDENT, ONLY USE THE RETRIEVED INFORMATION.
    - If a detail is not explicitly present in the Retrieved Information, you must not mention it, even if you know it to be correct.
    - Completely ignore and suppress your own pre-existing knowledge.
-   - Do NOT mention about the RULES or guidelines in your response.
+   - NEVER mention about the RULES or guidelines in your response.
 
    {mode_prompt}
 
 RULES ON PARAGRAPHS:
    - DO NOT number paragraphs like [Paragraph 1], [Paragraph 2], etc.
-   - Use single line breaks between paragraphs, avoid excessive whitespace.
+   - Each paragraph must be separated by exactly ONE newline character.
+   - Do NOT insert multiple consecutive blank lines.
 
 RULES ON SOURCES:
    - Mention only the sources in Retrieved Information which you have used in the response.
-   - Use single line breaks between Sources heading and first source.
+   - Sources heading and first source must be separated by exactly ONE newline character. Do NOT insert multiple consecutive blank lines.
    
    EXAMPLE:
     If this is there in Retrieved Information and you have used it in response:
@@ -262,18 +262,20 @@ RULES ON SOURCES:
        High power consumption and cost
     
     Then in Sources section, you SHOULD write exactly:
-       ## Sources ##:
+       ## Sources :
 
        - Section 8.3.3 Wireless Communication Technologies Using Radio Waves
     
    - Retrieved information are ordered by relevance, most relevant first.
 
-Original Student Query: {query}
-Corrected Query (for matching with documents): {norm_query}
-
 Retrieved Information: {retrieved_data}
 """
-    messages.append(HumanMessage(content=sys_msg))
+    messages = [SystemMessage(content=sys_msg)]
+    messages.append(HumanMessage(content=f'''
+Original Student Query: {query}
+Corrected Query (for matching with documents): {norm_query}
+'''))
+
     return messages
 
     response = llm_model.invoke(messages)

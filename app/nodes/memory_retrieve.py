@@ -31,12 +31,12 @@ CONTEXT:
 OUTPUT FORMAT:
 [Paragraphs]
 
-**Summary:** (only if more than 3 paragraphs)
+**Summary: (only if more than 3 paragraphs)
 - [point 1]
 - [point 2]
 - .....
 
-**Sources:**
+**Sources:
 - [Section 1]
 - [Section 2]
 - .....
@@ -55,5 +55,6 @@ New Query:
     messages = [SystemMessage(content="Reasoning Mode: OFF")]
     messages.append(HumanMessage(content=sys_msg))
 
+    return messages
     res = llm_model.invoke(messages).content
     return res

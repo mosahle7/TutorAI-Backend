@@ -20,35 +20,25 @@ os.environ["LANGSMITH_PROJECT"] = "tutorai"
 
 llm_model = ChatNVIDIA(
     base_url="https://integrate.api.nvidia.com/v1",
-    api_key=os.getenv("MODEL_API"),
-    model="nvidia/llama-3.1-nemotron-nano-8b-v1",
+    # api_key=os.getenv("MODEL_API"),
+    # model="nvidia/llama-3.1-nemotron-nano-8b-v1",
+    api_key=os.getenv("LLAMA_3.170B"),
+    model="meta/llama-3.1-70b-instruct",
     temperature=0,
     top_p=0.75,
     max_retries=3,
     max_completion_tokens=5000
 )
 
-# def llm_call(state: MessagesState):
-#     msg = state["messages"][-1].content
-
-#     if len(msg)<5:
-#         print("Just END\n\n")
-#         return {"route_to": END}
-#     return {"messages": [llm_model.invoke(state["messages"])]}
-
-
 class MsgState(MessagesState):
     retrieved_data : str
+    mode : str
 
 config = {"configurable": {"thread_id":"1"}}
 
-# def router(state: MessagesState):
-#     """Router node: doesn't decide where to go, just returns state."""
-#     return {}   # ✅ must return a dict
-
-
 def route_condition(state: MsgState) -> str:
     """Condition function to decide next node."""
+    print("🤖 route_condition node")
     query = state["messages"][-1].content.lower()
     r = router(llm_model, query) 
     if r == "document":
@@ -58,6 +48,7 @@ def route_condition(state: MsgState) -> str:
     return "memory_retrieval"
 
 def document_retrieval(state: MsgState):
+    print("🤖 document_retrieval node")
     query = state["messages"][-1].content
     sym_spell = build_symspell()
     norm_query = normalize_query(query, sym_spell)
@@ -82,10 +73,12 @@ def document_retrieval(state: MsgState):
     return {"retrieved_data": state["retrieved_data"]}
 
 def llm_retrieved_call(state: MsgState):
+    print("🤖 llm_retrieved_call node")
+
     query = state["messages"][-1].content
     sym_spell = build_symspell()
     norm_query = normalize_query(query, sym_spell)
-    mode = check_mode(llm_model, norm_query)
+    mode = state["mode"]
     print("Mode: ",mode)
 
     retrieved_data = state["retrieved_data"]
@@ -93,27 +86,52 @@ def llm_retrieved_call(state: MsgState):
         state["messages"].append(AIMessage(content=f"The uploaded document does not provide any information about: {query}"))
         return {"messages": state["messages"][-1:]}
     
+    # print(retrieved_data)
     msg = gen_retrieved_res(llm_model, query, norm_query, retrieved_data, mode)
 
-    full_res = ""
+    res_chunks = []
+    chunk_count = 0
 
     for chunk in llm_model.stream(msg):
         if chunk.content:
-            full_res += chunk.content
-            yield {"messages": [AIMessage(content=chunk.content)]}
-    
-    state["messages"].append(AIMessage(content=full_res))
-    return {"messages": state["messages"][-1:]}
+            chunk_count += 1
+            res_chunks.append(AIMessage(content=chunk.content))
+
+    print(f"🤖 Collected {len(res_chunks)} chunks, returning to graph")
+
+    # state["messages"].append(AIMessage(content="".join([c.content for c in res_chunks])))
+    return {"messages": " ".join([c.content for c in res_chunks])}
 
 def memory_retrieval(state: MsgState):
-    query = state["messages"][-1].content
-    prev_query = state["messages"][-3].content
-    prev_res = state["messages"][-2].content
-    retrieved_data = state["retrieved_data"]
+    if len(state["messages"])<3:
+        print("Just starting conversation")
+        state["messages"].append(AIMessage(content="Hi! This seems to be our first chat. What topic would you like to discuss?"))
+        return {"messages": state["messages"][-1:]}
+    
+    else:
+        query = state["messages"][-1].content
+        prev_query = state["messages"][-3].content
+        prev_res = state["messages"][-2].content
+        retrieved_data = state["retrieved_data"]
 
-    res = gen_memory_res(llm_model, query, prev_query, prev_res, retrieved_data)
-    state["messages"].append(AIMessage(content=res))
-    return {"messages": state["messages"][-1:]}
+        msg = gen_memory_res(llm_model, query, prev_query, prev_res, retrieved_data)
+
+        res_chunks = []
+        chunk_count = 0
+
+        for chunk in llm_model.stream(msg):
+            if chunk.content:
+                chunk_count += 1
+                res_chunks.append(AIMessage(content=chunk.content))
+
+        print(f"🤖 Collected {len(res_chunks)} chunks, returning to graph")
+
+        state["messages"].append(AIMessage(content="".join([c.content for c in res_chunks])))
+        return {"messages": " ".join([c.content for c in res_chunks])}
+
+
+    # state["messages"].append(AIMessage(content=res))
+    # return {"messages": state["messages"][-1:]}
 
 memory = MemorySaver()
 
