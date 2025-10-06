@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from .nodes.decision_node import router
 from .nodes.doc_retrieve import build_symspell, normalize_query, hybrid_search, rerank, check_mode, gen_retrieved_res
 from .nodes.memory_retrieve import gen_memory_res
+from .nodes.question_llm_call import gen_questions
 
 load_dotenv() 
 
@@ -33,6 +34,10 @@ llm_model = ChatNVIDIA(
 class MsgState(MessagesState):
     retrieved_data : str
     mode : str
+
+class MsgState2(MessagesState):
+    retrieved_data : str
+    num_questions : int
 
 config = {"configurable": {"thread_id":"1"}}
 
@@ -151,3 +156,34 @@ builder.add_edge("memory_retrieval", END)
 
 graph = builder.compile(checkpointer=memory)
 # graph = builder.compile()
+
+def question_generation(state: MsgState2):
+    print("🤖 question_generation node")
+
+    topic = state["messages"][-1].content
+    sym_spell = build_symspell()
+    norm_topic = normalize_query(topic, sym_spell)
+
+    retrieved_data = state["retrieved_data"]
+    if retrieved_data is None or retrieved_data == "":
+        state["messages"].append(AIMessage(content=f"Sorry, no questions can be generated because, the uploaded document does not provide any information about: {topic}"))
+        return {"messages": state["messages"][-1:]}
+
+    num_questions = state["num_questions"]
+
+    questions = gen_questions(llm_model, topic, norm_topic, retrieved_data, num_questions)
+
+    state["messages"].append(AIMessage(content=questions))
+    return {"messages": state["messages"][-1:]}
+
+builder2 = StateGraph(MsgState2)
+
+builder2.add_node(document_retrieval)
+builder2.add_node(question_generation)
+
+builder2.add_edge(START, "document_retrieval")
+builder2.add_edge("document_retrieval", "question_generation")
+builder2.add_edge("question_generation", END)
+
+graph2 = builder2.compile()
+

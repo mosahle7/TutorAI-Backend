@@ -25,7 +25,7 @@ def build_symspell(prefix_length=7):
 def normalize_query(query, sym_spell=None, threshold=80):
     words = re.findall(r"[a-zA-Z0-9\-_/\.]{2,}", query.lower())
     corrected = []
-
+    # print("Domain terms:", vdb_config.terms)
     for w in words:
         if w in vdb_config.terms:  # ✅ exact doc match
             corrected.append(w)
@@ -111,25 +111,29 @@ def check_mode(llm_model, query):
     messages = [SystemMessage(content="Reasoning Mode: OFF")]
 
     sys_mgs = f"""You are tasked with classifying the mode of explanation of the given query.
-You must classify the query into one of the following modes: "explanatory", "concise", "default".
+You must classify the query into one of the following modes: "explanatory", "concise", "default", "fullform".
 
 RULES:
 - If the query contains "explain", "describe", "long", "essay", "detail" → "explanatory"
 - If the query contains words like "summarize", "short", "in brief", "concise", "main points", "bullet points" → "concise"
+- If the query contains words like "full form", "fullform", "full-form", "expand", "expansion → "fullform"
 - Otherwise → "default"
 
 EXAMPLES:
 1. "What is something?" - default
 2. "Explain something." - explanatory
 3. "Summarize the main points of something." - concise
-4. "Write about something in long" - explanatory
-5. "Tell me about the process of something." - default
-6. "What are benefits of something in short?" - concise
-7. "Write about something" - default
-8. "Something" - default
-9. "Describe something" - explanatory
+4. "Full form of something." - fullform
+5. "Write about something in long" - explanatory
+6. "Tell me about the process of something." - default
+7. "Expand something" - fullform
+8. "What are benefits of something in short?" - concise
+9. "Write about something" - default
+10. "Something" - default
+11. "Exapansion of something" - fullform
+12. "Describe something" - explanatory
 
-Respond with ONLY one word: explanatory, concise, or default.
+Respond with ONLY one word: explanatory, concise, fullform or default.
 
 Query: {query}
     """
@@ -143,6 +147,8 @@ Query: {query}
         return "explanatory"
     elif "concise" in mode:
         return "concise"
+    elif "fullform" in mode:
+        return "fullform"
     else:
         return "default"
     
@@ -197,6 +203,22 @@ RESPONSE FORMAT:
 - [Section 2]
 - .....
 """
+    elif mode == "fullform":
+        prompt = f"""Provide the full form or expansion of the given acronym or term in one sentence.
+RESPONSE RULES:
+    - If the full form is present in Retrieved Information, provide it exactly as is.
+    - If the full form is NOT present in Retrieved Information, respond with "Full form not found".
+    - Do NOT provide any additional information.
+    - Sources should be there.
+    - Use Markdown format with ## Sources heading.
+
+RESPONSE FORMAT SHOULD BE LIKE THIS:
+
+[Full Form or "Full form not found"]
+
+## Sources: 
+- [Section 1]
+"""
     else:
         prompt =  f""""Provide balanced responses with moderate detail that covers: definition, context, examples and relevance.
 
@@ -230,7 +252,7 @@ def gen_retrieved_res(llm_model, query, norm_query, retrieved_data, mode):
     mode_prompt = mode_prompts(mode)
 
     # messages = [SystemMessage(content="Reasoning Mode: OFF")]
-    sys_msg = f"""You are a TutorAI, who helps students. You will be asked a query by a student and given some Relevant Information, you must ONLY answer using Retrieved Information provided.
+    sys_msg = f"""You are a TutorAI, an AI assitant that helps students. You will be asked a query by a student and given some Relevant Information, you must ONLY answer using Retrieved Information provided.
 
 Follow these rules strictly:
 RULES:

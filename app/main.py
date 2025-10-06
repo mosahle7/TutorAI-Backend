@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from .utils import gen_single_ip, hybrid_search, gen_final_response, check_mode, list_files, is_pdf
-from .agent import graph, MsgState, config
+from .agent import graph, MsgState, config, graph2, MsgState2
 from .nodes.doc_retrieve import check_mode
 import asyncio
 import re
@@ -105,6 +105,21 @@ async def root():
 #     res = graph.invoke(state.values, config=config)
 
 #     return res["messages"][-1].content
+
+def gen_questions(topic: str, num_questions: int):
+    state = MsgState2()
+    state["messages"] = [HumanMessage(content=topic)]
+    state["retrieved_data"] = ""
+    state["num_questions"] = num_questions
+
+    res = graph2.invoke(state)
+    return res["messages"][-1].content
+
+@app.post("/gen_questions",status_code=status.HTTP_201_CREATED)
+async def get_questions(topic:str = Body(...), num_questions: int = Body(...)):
+    res = await asyncio.to_thread(gen_questions, topic, num_questions)
+    return res
+
 
 # @app.post("/agentic_final",status_code=status.HTTP_201_CREATED)
 # async def get_agentic(query:str = Body(...,embed=False)):
@@ -214,7 +229,12 @@ def list_docs():
 def select_collection(collection_name: str):
     # global collection
     # try:
+    terms_dir = "./app/terms"
+    terms_save = os.path.join(terms_dir, collection_name + ".txt")
+
     vdb_config.collection = vdb_config.client.collections.get(collection_name)
+    with open(terms_save, "r", encoding="utf-8") as f:
+        vdb_config.terms = [line.strip() for line in f if line.strip()]
     # except Exception as e:
     #     print(f"Error selecting collection: {e}")
     return {"collection_name":collection_name, "collection": vdb_config.collection.name}
