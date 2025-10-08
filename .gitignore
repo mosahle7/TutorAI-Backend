@@ -11,9 +11,6 @@ build/
 .eggs/
 *.log
 
-
-.env
-
 /backend/
 
 /app/studio/
