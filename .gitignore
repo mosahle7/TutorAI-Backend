@@ -18,4 +18,4 @@ build/
 /app/test.py
 /app/translate.py
 /app/translation.py
-/app/translated_output.txt.env
+/app/translated_output.txt
