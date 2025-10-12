@@ -3,10 +3,10 @@ FROM python:3.12-slim
 WORKDIR /backend
 
 # Copy requirements (create this file first)
-COPY requirements.txt .
+COPY docker_requirements.txt .
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r docker_requirements.txt
 
 # Copy application code
 COPY . .

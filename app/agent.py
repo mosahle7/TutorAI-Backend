@@ -11,13 +11,13 @@ from .nodes.question_llm_call import gen_questions
 
 load_dotenv() 
 
-def _set_env(var: str):
-    if not os.environ.get(var):
-        os.environ[var] = getpass.getpass(f"{var}: ")
+# def _set_env(var: str):
+#     if not os.environ.get(var):
+#         os.environ[var] = getpass.getpass(f"{var}: ")
 
-_set_env("LANGSMITH_API_KEY")
-os.environ["LANGSMITH_TRACING"] = "true"
-os.environ["LANGSMITH_PROJECT"] = "tutorai"
+# _set_env("LANGSMITH_API_KEY")
+# os.environ["LANGSMITH_TRACING"] = "true"
+# os.environ["LANGSMITH_PROJECT"] = "tutorai"
 
 llm_model = ChatNVIDIA(
     base_url="https://integrate.api.nvidia.com/v1",
@@ -88,7 +88,7 @@ def llm_retrieved_call(state: MsgState):
 
     retrieved_data = state["retrieved_data"]
     if retrieved_data is None or retrieved_data == "":
-        state["messages"].append(AIMessage(content=f"The uploaded document does not provide any information about: {query}"))
+        state["messages"].append(AIMessage(content=f"I couldn't find any information about: {query}. Please try asking something else."))
         return {"messages": state["messages"][-1:]}
     
     # print(retrieved_data)
@@ -166,7 +166,7 @@ def question_generation(state: MsgState2):
 
     retrieved_data = state["retrieved_data"]
     if retrieved_data is None or retrieved_data == "":
-        state["messages"].append(AIMessage(content=f"Sorry, no questions can be generated because, the uploaded document does not provide any information about: {topic}"))
+        state["messages"].append(AIMessage(content=f"I couldn't generate any questions as the uploaded document does not provide any information on: {topic}."))
         return {"messages": state["messages"][-1:]}
 
     num_questions = state["num_questions"]

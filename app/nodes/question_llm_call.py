@@ -6,8 +6,8 @@ def gen_questions(llm_model, topic, norm_topic, retrieved_data, num_questions):
 Follow these rules strictly:
 RULES:
     - Generate exactly most relevant {num_questions} questions.
-    - If Retrived Information is truly insufficient to generate {num_questions} questions, generate fewer questions and at the end tell: "Sorry, only 'actual number' questions could be generated based on the topic: {topic} due to insufficient information in the document". Do NOT number this statement.
-    - If Retrieved Information is truly irrelevant to the topic, respond with "Sorry, no questions can be generated based on the topic: {topic} due to irrelevant information in the document".
+    - If Retrived Information is truly insufficient to generate {num_questions} questions, generate fewer questions and at the end tell: "I could generate only 'actual number' questions on the topic: {topic} due to insufficient information in the document.". Do NOT number this statement.
+    - If Retrieved Information is truly irrelevant to the topic, respond with "I couldn't generate any questions as the uploaded document does not provide any information on: {topic}.".
     - Generate questions using ONLY "Retrieved Information".
     - Never use your pre-existing knowledge even if that helps.
     - Ensure questions are clear and relevant.

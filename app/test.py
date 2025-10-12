@@ -21,7 +21,7 @@ client = weaviate.connect_to_local(
                     timeout=weaviate.classes.init.Timeout(init=30, query=60, insert=120)
                 )
             )
-collection_name = "netwroks_new"
+collection_name = "networks"
 
 try:
     # Check if collection exists first (optional)

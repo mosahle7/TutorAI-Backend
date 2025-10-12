@@ -16,7 +16,15 @@ spell = SpellChecker()
 
 def list_files():
     docs_dir = "./app/data"
-    files = [f for f in os.listdir(docs_dir) if os.path.isfile(os.path.join(docs_dir,f))]
+    all_files = [f for f in os.listdir(docs_dir) if os.path.isfile(os.path.join(docs_dir,f))]
+    
+    base_name_with_pdf = {os.path.splitext(f)[0] for f in all_files if f.endswith(".pdf")}
+
+    files = [
+        f for f in all_files
+        if not(os.path.splitext(f)[0] in base_name_with_pdf and not f.endswith(".pdf"))
+    ]
+
     return files
 
 def is_pdf(file_path):
@@ -339,302 +347,302 @@ def build_doc_terms(chunk_objs, top_n=1500):
     return terms
 
 
-def build_symspell(terms, prefix_length=7):
-    # ✅ only prefix_length is accepted in init
-    sym_spell = SymSpell(prefix_length=prefix_length)
+# def build_symspell(terms, prefix_length=7):
+#     # ✅ only prefix_length is accepted in init
+#     sym_spell = SymSpell(prefix_length=prefix_length)
 
-    for term in terms:
-        sym_spell.create_dictionary_entry(term, 1)
+#     for term in terms:
+#         sym_spell.create_dictionary_entry(term, 1)
 
-    return sym_spell
+#     return sym_spell
 
-from rapidfuzz import process
-from spellchecker import SpellChecker
+# from rapidfuzz import process
+# from spellchecker import SpellChecker
 
-spell = SpellChecker()
+# spell = SpellChecker()
 
-def normalize_query(query, domain_terms, sym_spell=None, threshold=80):
-    words = re.findall(r"[a-zA-Z0-9\-_/\.]{2,}", query.lower())
-    corrected = []
+# def normalize_query(query, domain_terms, sym_spell=None, threshold=80):
+#     words = re.findall(r"[a-zA-Z0-9\-_/\.]{2,}", query.lower())
+#     corrected = []
 
-    for w in words:
-        if w in domain_terms:  # ✅ exact doc match
-            corrected.append(w)
-        elif w in spell:  # ✅ valid English word
-            corrected.append(w)
-        else:
-            # Try SymSpell first (typo correction)
-            if sym_spell:
-                suggestions = sym_spell.lookup(w, verbosity=2)
-                if suggestions:
-                    corrected.append(suggestions[0].term)
-                    continue
+#     for w in words:
+#         if w in domain_terms:  # ✅ exact doc match
+#             corrected.append(w)
+#         elif w in spell:  # ✅ valid English word
+#             corrected.append(w)
+#         else:
+#             # Try SymSpell first (typo correction)
+#             if sym_spell:
+#                 suggestions = sym_spell.lookup(w, verbosity=2)
+#                 if suggestions:
+#                     corrected.append(suggestions[0].term)
+#                     continue
 
-            # Fallback: fuzzy match against domain terms
-            match = process.extractOne(w, domain_terms)
-            if match and match[1] >= threshold:
-                corrected.append(match[0])
-            else:
-                corrected.append(w)  # last resort: leave as-is
+#             # Fallback: fuzzy match against domain terms
+#             match = process.extractOne(w, domain_terms)
+#             if match and match[1] >= threshold:
+#                 corrected.append(match[0])
+#             else:
+#                 corrected.append(w)  # last resort: leave as-is
 
-    return " ".join(corrected)
+#     return " ".join(corrected)
 
 
-def gen_single_ip(
-    llm_model,
-    messages: List[Dict[str, str]],
-    # role: str = "user",
-    top_p: float = 0.75,
-    temperature: float = 0,
-    max_tokens: int = 5000,
-    model: str = "nvidia/llama-3.1-nemotron-nano-8b-v1",
-    **kwargs,
-):
-        payload = {
-            "model": model,
-            # "messages": [{"role":"user","content":query}],
-            "messages":messages,
-            "top_p": top_p,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "stream":True,
-            **kwargs,
-        }
+# def gen_single_ip(
+#     llm_model,
+#     messages: List[Dict[str, str]],
+#     # role: str = "user",
+#     top_p: float = 0.75,
+#     temperature: float = 0,
+#     max_tokens: int = 5000,
+#     model: str = "nvidia/llama-3.1-nemotron-nano-8b-v1",
+#     **kwargs,
+# ):
+#         payload = {
+#             "model": model,
+#             # "messages": [{"role":"user","content":query}],
+#             "messages":messages,
+#             "top_p": top_p,
+#             "temperature": temperature,
+#             "max_tokens": max_tokens,
+#             "stream":True,
+#             **kwargs,
+#         }
 
-        try:
-            completion = llm_model.chat.completions.create(**payload)
+#         try:
+#             completion = llm_model.chat.completions.create(**payload)
 
-            for chunk in completion:
-                if chunk.choices[0].delta.content is not None:
-                    content = chunk.choices[0].delta.content
-                    # print(f"Yielding: {repr(content)}")  # Add this debug line
-                    yield content
+#             for chunk in completion:
+#                 if chunk.choices[0].delta.content is not None:
+#                     content = chunk.choices[0].delta.content
+#                     # print(f"Yielding: {repr(content)}")  # Add this debug line
+#                     yield content
 
-        except Exception as e:
-            yield f"Error: {str(e)}"
-        # msg = completion.choices[0].message  # ChatCompletionMessage
-        # return msg.content
+#         except Exception as e:
+#             yield f"Error: {str(e)}"
+#         # msg = completion.choices[0].message  # ChatCompletionMessage
+#         # return msg.content
         
-        # except Exception as e:
-        #     print(f"Errror generating response: {e}")
-        #     return {"error":str(e)}
+#         # except Exception as e:
+#         #     print(f"Errror generating response: {e}")
+#         #     return {"error":str(e)}
 
-def hybrid_search(collection,norm_query,top_k=30,alpha=0.2):
-    try:
-        print(norm_query)
-        res = collection.query.hybrid(norm_query,limit=top_k,alpha=alpha,return_metadata=MetadataQuery(score=True, explain_score=True))
-        res_objs = []
-        for obj in res.objects:
-            if obj.metadata.score>0.25:
-                res_objs.append(obj.properties)    
+# def hybrid_search(collection,norm_query,top_k=30,alpha=0.2):
+#     try:
+#         print(norm_query)
+#         res = collection.query.hybrid(norm_query,limit=top_k,alpha=alpha,return_metadata=MetadataQuery(score=True, explain_score=True))
+#         res_objs = []
+#         for obj in res.objects:
+#             if obj.metadata.score>0.25:
+#                 res_objs.append(obj.properties)    
 
-        res = [obj for obj in res.objects if obj.metadata.score>0.25]   
-        # for obj in res_objs:
-        #     s=""
-        #     for key in obj.keys():
-        #         s+=f"{key}: {obj[key]}\n"
-        #     print(s)
-        return res, res_objs
-    except Exception as e:
-        print(f"Failed retrieving information: {e}")
-        return {"error":str(e)},[]
+#         res = [obj for obj in res.objects if obj.metadata.score>0.25]   
+#         # for obj in res_objs:
+#         #     s=""
+#         #     for key in obj.keys():
+#         #         s+=f"{key}: {obj[key]}\n"
+#         #     print(s)
+#         return res, res_objs
+#     except Exception as e:
+#         print(f"Failed retrieving information: {e}")
+#         return {"error":str(e)},[]
     
-def check_mode(llm_model, query):
-    messages = [
-        {
-            "role":"system", "content": "Reasoning mode: OFF"
-        },
+# def check_mode(llm_model, query):
+#     messages = [
 #         {
-#             "role":"user", "content":f"""You will be given a query, your task is to identify the mode of explanation of the query.
-# You ONLY need to respond with one of these words: "default", "explanatory" or "concise".
+#             "role":"system", "content": "Reasoning mode: OFF"
+#         },
+# #         {
+# #             "role":"user", "content":f"""You will be given a query, your task is to identify the mode of explanation of the query.
+# # You ONLY need to respond with one of these words: "default", "explanatory" or "concise".
 
-# Examples:
+# # Examples:
+# # 1. "What is something?" - default
+# # 2. "Explain something." - explanatory
+# # 3. "Summarize the main points of something." - concise
+# # 4. "Write about something in long" - explanatory
+# # 5. "Tell me about the process of something." - default
+# # 6. "What are benefits of something in short?" - concise
+# # Query: {query}
+# # """
+# #         }
+
+#         {
+#             "role":"user", "content":f"""You are tasked with classifying the mode of explanation of the given query.
+# You must classify the query into one of the following modes: "explanatory", "concise", "default".
+
+# RULES:
+# - If the query contains "explain", "describe", "long", "essay" → "explanatory"
+# - If the query contains words like "summarize", "short", "in brief", "concise", "main points", "bullet points" → "concise"
+# - Otherwise → "default"
+
+# EXAMPLES:
 # 1. "What is something?" - default
 # 2. "Explain something." - explanatory
 # 3. "Summarize the main points of something." - concise
 # 4. "Write about something in long" - explanatory
 # 5. "Tell me about the process of something." - default
 # 6. "What are benefits of something in short?" - concise
+# 7. "Write about something" - default
+# 8. "Something" - default
+
+# Respond with ONLY one word: explanatory, concise, or default.
+
 # Query: {query}
 # """
 #         }
-
-        {
-            "role":"user", "content":f"""You are tasked with classifying the mode of explanation of the given query.
-You must classify the query into one of the following modes: "explanatory", "concise", "default".
-
-RULES:
-- If the query contains "explain", "describe", "long", "essay" → "explanatory"
-- If the query contains words like "summarize", "short", "in brief", "concise", "main points", "bullet points" → "concise"
-- Otherwise → "default"
-
-EXAMPLES:
-1. "What is something?" - default
-2. "Explain something." - explanatory
-3. "Summarize the main points of something." - concise
-4. "Write about something in long" - explanatory
-5. "Tell me about the process of something." - default
-6. "What are benefits of something in short?" - concise
-7. "Write about something" - default
-8. "Something" - default
-
-Respond with ONLY one word: explanatory, concise, or default.
-
-Query: {query}
-"""
-        }
-    ]
+#     ]
     
-    payload = {
-        "model": "nvidia/llama-3.1-nemotron-nano-8b-v1",
-        "messages": messages,
-        "top_p": 0.7,
-        "temperature": 0,
-        "max_tokens": 3,
+#     payload = {
+#         "model": "nvidia/llama-3.1-nemotron-nano-8b-v1",
+#         "messages": messages,
+#         "top_p": 0.7,
+#         "temperature": 0,
+#         "max_tokens": 3,
     
-    }
-    completion = llm_model.chat.completions.create(**payload)
+#     }
+#     completion = llm_model.chat.completions.create(**payload)
 
-    msg = completion.choices[0].message.content.strip().lower()  # ChatCompletionMessage
+#     msg = completion.choices[0].message.content.strip().lower()  # ChatCompletionMessage
 
-    if "explanatory" in msg:
-        return "explanatory"
-    elif "concise" in msg:
-        return "concise"
-    else:
-        return "default"
+#     if "explanatory" in msg:
+#         return "explanatory"
+#     elif "concise" in msg:
+#         return "concise"
+#     else:
+#         return "default"
     
-def prompts_mode(mode):
-    if mode == "default":
-        prompt = f"""- Try to produce at least 3–4 short paragraphs (with paragraphs having at least 3–4 sentences each), only if enough information is available in Retrieved Information.
-- Cover multiple aspects (definition, context, examples, relevance) within paragraphs.
-- If there is not enough information in Retrieved Information, answer as completely as possible.
-- Do not include a summary for responses with fewer than 3 paragraphs.
-"""
-    elif mode == "explanatory":
-        prompt = f"""- Always produce atleast 4-5 short paragraphs (with paragraphs having atleast 3–4 sentences each) only if enough information is available in Retrieved Information.
-- Cover multiple aspects (definition, context, examples, relevance).
-"""
-    else:
-        prompt=f"""- Always answer in 1 paragraph, containing 3–4 sentences only if enough information is available in Retrieved Information.
-"""
-    return prompt
+# def prompts_mode(mode):
+#     if mode == "default":
+#         prompt = f"""- Try to produce at least 3–4 short paragraphs (with paragraphs having at least 3–4 sentences each), only if enough information is available in Retrieved Information.
+# - Cover multiple aspects (definition, context, examples, relevance) within paragraphs.
+# - If there is not enough information in Retrieved Information, answer as completely as possible.
+# - Do not include a summary for responses with fewer than 3 paragraphs.
+# """
+#     elif mode == "explanatory":
+#         prompt = f"""- Always produce atleast 4-5 short paragraphs (with paragraphs having atleast 3–4 sentences each) only if enough information is available in Retrieved Information.
+# - Cover multiple aspects (definition, context, examples, relevance).
+# """
+#     else:
+#         prompt=f"""- Always answer in 1 paragraph, containing 3–4 sentences only if enough information is available in Retrieved Information.
+# """
+#     return prompt
 
 
-def rerank(query, initial_res, docs):
-    documents = [doc['text'] for doc in docs]
-    top_k=20
-    try:
-        rerank_res = requests.post(
-            'http://127.0.0.1:8000/weaviate/rerank',
-            json={'query': query, 'documents': documents},
-            timeout=30
-        )
+# def rerank(query, initial_res, docs):
+#     documents = [doc['text'] for doc in docs]
+#     top_k=20
+#     try:
+#         rerank_res = requests.post(
+#             'http://127.0.0.1:8000/weaviate/rerank',
+#             json={'query': query, 'documents': documents},
+#             timeout=30
+#         )
 
-        if rerank_res.status_code != 200:
-            raise RuntimeError(f"Rerank API returned {rerank_res.status_code}")
+#         if rerank_res.status_code != 200:
+#             raise RuntimeError(f"Rerank API returned {rerank_res.status_code}")
 
-        rerank_data = rerank_res.json()
-        reranked_scores = rerank_data['scores']
+#         rerank_data = rerank_res.json()
+#         reranked_scores = rerank_data['scores']
 
-        score_map = {s['document']: s['score'] for s in reranked_scores}
+#         score_map = {s['document']: s['score'] for s in reranked_scores}
 
-        # 4. Attach scores and sort
-        combined_results = [
-            (obj, score_map.get(obj.properties['text'], 0.0))
-            for obj in initial_res
-        ]
-        combined_results.sort(key=lambda x: x[1], reverse=True)
+#         # 4. Attach scores and sort
+#         combined_results = [
+#             (obj, score_map.get(obj.properties['text'], 0.0))
+#             for obj in initial_res
+#         ]
+#         combined_results.sort(key=lambda x: x[1], reverse=True)
 
-        # 5. Take top_k and return properties list
-        response_objects = [obj for obj,_ in combined_results[:top_k]]
-        print("Reraking Done!")
-        return response_objects
+#         # 5. Take top_k and return properties list
+#         response_objects = [obj for obj,_ in combined_results[:top_k]]
+#         print("Reraking Done!")
+#         return response_objects
 
-    except Exception as e:
-        print(f"Reranking failed: {e}")
-        # Fallback to original ordering
-        return [obj for obj in initial_res[:top_k]]
+#     except Exception as e:
+#         print(f"Reranking failed: {e}")
+#         # Fallback to original ordering
+#         return [obj for obj in initial_res[:top_k]]
 
 
 
-def gen_final_response(llm_model,collection,query:str,terms):
-    sym_spell = build_symspell(terms)
-    norm_query = normalize_query(query,terms,sym_spell)
-    initail_res,initial_docs = hybrid_search(collection, norm_query)
-    if initial_docs == []:
-        yield f"The uploaded document does not provide any information about {query}.".replace("\n","")
-        return
+# def gen_final_response(llm_model,collection,query:str,terms):
+#     sym_spell = build_symspell(terms)
+#     norm_query = normalize_query(query,terms,sym_spell)
+#     initail_res,initial_docs = hybrid_search(collection, norm_query)
+#     if initial_docs == []:
+#         yield f"The uploaded document does not provide any information about {query}.".replace("\n","")
+#         return
     
-    mode = check_mode(llm_model, norm_query)
-    mode_prompt = prompts_mode(mode)
-    top_k_docs = rerank(norm_query, initail_res, initial_docs)
+#     mode = check_mode(llm_model, norm_query)
+#     mode_prompt = prompts_mode(mode)
+#     top_k_docs = rerank(norm_query, initail_res, initial_docs)
 
-    formatted_data = ""
+#     formatted_data = ""
 
-    for idx,doc in enumerate(top_k_docs, start=1):
-        doc_layout = (
-            f"Section: {doc.properties['section']},\n"
-            f"Text:\n{doc.properties['text']}"
-        )
+#     for idx,doc in enumerate(top_k_docs, start=1):
+#         doc_layout = (
+#             f"Section: {doc.properties['section']},\n"
+#             f"Text:\n{doc.properties['text']}"
+#         )
 
-        formatted_data += doc_layout+"\n\n"
+#         formatted_data += doc_layout+"\n\n"
     
-    retrieved_data = formatted_data
+#     retrieved_data = formatted_data
 
-    print(retrieved_data)
+#     print(retrieved_data)
 
-    messages = [
-            {
-                "role": "system", "content": "Reasoning mode: OFF"
-            },
-            {
-                "role":"user", "content":f"""You are a TutorAI, who helps students. You will be asked a query by a student and given some relevant textbook information, you must ONLY answer using Retrieved Information provided.
+#     messages = [
+#             {
+#                 "role": "system", "content": "Reasoning mode: OFF"
+#             },
+#             {
+#                 "role":"user", "content":f"""You are a TutorAI, who helps students. You will be asked a query by a student and given some relevant textbook information, you must ONLY answer using Retrieved Information provided.
 
-RULES:
-- Do not start with filler phrases (e.g., "Sure, I can help you with that").
-- Do NOT mention about "Retrieved Data".
-- Write in natural flowing paragraphs without section headings.
-- NEVER USE YOUR PRE-EXISTING KNOWLEDGE EVEN IF THAT HELPS STUDENT, ONLY USE THE RETRIEVED INFORMATION.
-- If a detail is not explicitly present in the Retrieved Information, you must not mention it, even if you know it to be correct.
-- Completely ignore and suppress your own pre-existing knowledge.
-- Do NOT mention about the instructions or guidelines in your response.
+# RULES:
+# - Do not start with filler phrases (e.g., "Sure, I can help you with that").
+# - Do NOT mention about "Retrieved Data".
+# - Write in natural flowing paragraphs without section headings.
+# - NEVER USE YOUR PRE-EXISTING KNOWLEDGE EVEN IF THAT HELPS STUDENT, ONLY USE THE RETRIEVED INFORMATION.
+# - If a detail is not explicitly present in the Retrieved Information, you must not mention it, even if you know it to be correct.
+# - Completely ignore and suppress your own pre-existing knowledge.
+# - Do NOT mention about the instructions or guidelines in your response.
 
-RESPONSE FORMAT:
+# RESPONSE FORMAT:
 
-[Paragraphs]
+# [Paragraphs]
 
-**Summary:** (only if 3+ paragraphs)
-- [point 1]
-- [point 2]
-- .....
+# **Summary:** (only if 3+ paragraphs)
+# - [point 1]
+# - [point 2]
+# - .....
 
-**Sources:**
-- [Section 1]
-- [Section 2]
-- .....
+# **Sources:**
+# - [Section 1]
+# - [Section 2]
+# - .....
 
-ADDITIONAL RULES:
-{mode_prompt}
-- DO NOT number paragraphs like [Paragraph 1], [Paragraph 2], etc.
-- Use single line breaks between paragraphs, avoid excessive whitespace.
-- If your response contains 3 or more paragraphs, end with a summary section.
-- Do not add blank lines between heading and section names in Sources section and ONLY use the sources which you have used in your response.
-- In Sources section, ONLY list "Section" that was used in response mentioned as in Retrieved Information, NO need of "Text". Do not invent sources. Only mention Sources once.
-- Retrieved information are ordered by relevance, most relevant first.
+# ADDITIONAL RULES:
+# {mode_prompt}
+# - DO NOT number paragraphs like [Paragraph 1], [Paragraph 2], etc.
+# - Use single line breaks between paragraphs, avoid excessive whitespace.
+# - If your response contains 3 or more paragraphs, end with a summary section.
+# - Do not add blank lines between heading and section names in Sources section and ONLY use the sources which you have used in your response.
+# - In Sources section, ONLY list "Section" that was used in response mentioned as in Retrieved Information, NO need of "Text". Do not invent sources. Only mention Sources once.
+# - Retrieved information are ordered by relevance, most relevant first.
 
-Original Student Query: {query}
-Corrected Query (for matching with documents): {norm_query}
+# Original Student Query: {query}
+# Corrected Query (for matching with documents): {norm_query}
 
-Retrieved Information: {retrieved_data}
-"""
-            }
-     ]
+# Retrieved Information: {retrieved_data}
+# """
+#             }
+#      ]
 
-    # res = gen_single_ip(llm_model,messages,max_tokens=2000)
-    # print(res)
-    # return res
+#     # res = gen_single_ip(llm_model,messages,max_tokens=2000)
+#     # print(res)
+#     # return res
 
-    yield from gen_single_ip(llm_model,messages,max_tokens=2000)
+#     yield from gen_single_ip(llm_model,messages,max_tokens=2000)
 
 

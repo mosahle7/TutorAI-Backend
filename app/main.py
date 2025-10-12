@@ -5,7 +5,7 @@ from .ingestion import initialize_client, initialize_collection
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
-from .utils import gen_single_ip, hybrid_search, gen_final_response, check_mode, list_files, is_pdf
+from .utils import list_files, is_pdf
 from .agent import graph, MsgState, config, graph2, MsgState2
 from .nodes.doc_retrieve import check_mode
 import asyncio
@@ -229,6 +229,10 @@ def list_docs():
 def select_collection(collection_name: str):
     # global collection
     # try:
+    if collection_name.endswith(".pdf"):
+        collection_name = collection_name[:-4]
+        
+        print("yes", collection_name)
     terms_dir = "./app/terms"
     terms_save = os.path.join(terms_dir, collection_name + ".txt")
 
