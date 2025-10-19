@@ -288,7 +288,7 @@ RULES ON SOURCES:
 
        - Section 8.3.3 Wireless Communication Technologies Using Radio Waves
     
-   - Retrieved information are ordered by relevance, most relevant first.
+- Retrieved information are ordered by relevance, most relevant first.
 
 Retrieved Information: {retrieved_data}
 """
