@@ -77,6 +77,7 @@ def rerank(query, initial_res, docs):
     top_k=20
     try:
         rerank_res = requests.post(
+            # 'https://tutorai.ddns.net/transformer/weaviate/rerank',
             'http://127.0.0.1:8000/weaviate/rerank',
             json={'query': query, 'documents': documents},
             timeout=30
@@ -108,37 +109,39 @@ def rerank(query, initial_res, docs):
         return [obj for obj in initial_res[:top_k]]
 
 def check_mode(llm_model, query):
-    messages = [SystemMessage(content="Reasoning Mode: OFF")]
 
     sys_mgs = f"""You are tasked with classifying the mode of explanation of the given query.
-You must classify the query into one of the following modes: "explanatory", "concise", "default", "fullform".
+You must classify the query into one of the following modes: "explanatory", "concise", "fullform", "definition", "default".
 
 RULES:
 - If the query contains "explain", "describe", "long", "essay", "detail" → "explanatory"
-- If the query contains words like "summarize", "short", "in brief", "concise", "main points", "bullet points" → "concise"
-- If the query contains words like "full form", "fullform", "full-form", "expand", "expansion → "fullform"
+- If the query contains words like "summarize", "short", "in brief", "concise", "main points", "bullet points", "what is something" → "concise"
+- If the query contains words like "full form", "fullform", "full-form", "expand", "expansion" → "fullform"
+- If the query contains words like "define", "definition" → "definition"
 - Otherwise → "default"
 
 EXAMPLES:
-1. "What is something?" - default
+1. "What is something?" - concise
 2. "Explain something." - explanatory
 3. "Summarize the main points of something." - concise
-4. "Full form of something." - fullform
-5. "Write about something in long" - explanatory
-6. "Tell me about the process of something." - default
-7. "Expand something" - fullform
-8. "What are benefits of something in short?" - concise
-9. "Write about something" - default
-10. "Something" - default
-11. "Exapansion of something" - fullform
-12. "Describe something" - explanatory
+4. "Define something." - definition
+5. "Full form of something." - fullform
+6. "Write about something in long" - explanatory
+7. "Tell me about the process of something." - default
+8. "Expand something" - fullform
+9. "Definition of something" - definition
+10. "What are benefits of something in short?" - concise
+11. "Write about something" - default
+12. "Something" - default
+13. "What is the definition of something?" - definition
+14. "Expansion of something" - fullform
+15. "Describe something" - explanatory
 
-Respond with ONLY one word: explanatory, concise, fullform or default.
-
-Query: {query}
+Respond with ONLY one word: explanatory, concise, fullform, definition or default.
     """
+    messages = [SystemMessage(content=sys_mgs)]
 
-    messages.append(HumanMessage(content=sys_mgs))
+    messages.append(HumanMessage(content=f'Query: {query}'))
 
     response = llm_model.invoke(messages)
     mode = response.content.strip().lower()
@@ -149,6 +152,8 @@ Query: {query}
         return "concise"
     elif "fullform" in mode:
         return "fullform"
+    elif "definition" in mode:
+        return "definition"
     else:
         return "default"
     
@@ -217,6 +222,21 @@ RESPONSE FORMAT SHOULD BE LIKE THIS:
 [Full Form or "Full form not found"]
 
 ## Sources: 
+- [Section 1]
+"""
+    elif mode == "definition":
+        prompt = f"""Provide a clear and concise definition of the given term or concept in one sentence.
+RESPONSE RULES:
+   - If the definition is present in Retrieved Information, provide it exactly as is.
+   - If the definition is NOT present or you can't make a definition from Retrieved Information, respond with "Definition not found".
+   - Do NOT provide any additional information.
+   - Sources should be there.
+   - Use Markdown format with ## Sources heading.
+
+RESPONSE FORMAT SHOULD BE LIKE THIS:
+[Definition or "Definition not found"]
+
+## Sources:
 - [Section 1]
 """
     else:
