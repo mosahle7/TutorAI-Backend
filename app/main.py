@@ -40,10 +40,10 @@ app.add_middleware(
 # )
 
 llm_model = ChatNVIDIA(
-    base_url="https://integrate.api.nvidia.com/v1",
+    # base_url="https://integrate.api.nvidia.com/v1",
     # api_key=os.getenv("MODEL_API"),
     # model="nvidia/llama-3.1-nemotron-nano-8b-v1",
-    api_key=os.getenv("LLAMA_3.170B"),
+    api_key=os.getenv("LLAMA_API"),
     model="meta/llama-3.1-70b-instruct",
     temperature=0,
     top_p=0.75,
