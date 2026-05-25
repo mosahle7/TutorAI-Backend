@@ -102,13 +102,14 @@ async def rerank(req: Request):
         }
 
         payload = {
-            "model": "nvidia/llama-3.2-nv-rerankqa-1b-v2",
+            # "model": "nvidia/llama-3.2-nv-rerankqa-1b-v2",
+            "model": "nvidia/llama-nemotron-rerank-1b-v2",
             "query": {"text": query},
             "passages" :[{"text": doc["text"] if isinstance(doc,dict) else doc} for doc in documents]
         }
 
         resp = requests.post(
-            url = "https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-3_2-nv-rerankqa-1b-v2/reranking",
+            url = "https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking",
             headers=headers,
             json=payload,
             timeout=60
